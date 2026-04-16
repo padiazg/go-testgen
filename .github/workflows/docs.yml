@@ -41,8 +41,7 @@ jobs:
         run: pip install mkdocs-material pymdown-extensions
 
       - name: Deploy
-        working-directory: doc
-        run: pwd && ls -l && mkdocs gh-deploy --force
+        run: pwd && ls -l && cd doc && ls -l && mkdocs gh-deploy --force
         env:
           ANALYTICS_ID:  ${{ secrets.ANALYTICS_ID }}
 
