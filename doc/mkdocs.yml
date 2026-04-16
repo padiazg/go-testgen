@@ -92,3 +92,6 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/padiazg/go-testgen
+  analytics:
+    provider: google
+    property: !ENV ANALYTICS_ID
