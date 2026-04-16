@@ -45,13 +45,15 @@ func TestService_CreateUser(t *testing.T) {
         checks []checkServiceCreateUserFn
     }{
         {
-            name:   "TODO: success case",
-            checks: checkServiceCreateUser(),
+            name:   "success case",
+            checks: checkServiceCreateUser(
+                checkServiceCreateUserError(""),
+            ),
         },
         {
-            name:   "TODO: error case",
+            name:   "fail case",
             checks: checkServiceCreateUser(
-                checkServiceCreateUserError("TODO: expected error message"),
+                checkServiceCreateUserError("expected error message"),
             ),
         },
     }
@@ -94,11 +96,9 @@ func checkUserName(want string) checkServiceCreateUserFn {
     }
 }
 
-func checkUserIDNotEmpty() checkServiceCreateUserFn {
-    return func(t *testing.T, u *userDomain.User, _ error) {
-        t.Helper()
-        assert.NotEmptyf(t, u.ID, "checkUserIDNotEmpty: ID should not be empty")
-    }
+func checkUserIDNotEmpty(t *testing.T, u *userDomain.User, _ error) {
+    t.Helper()
+    assert.NotEmptyf(t, u.ID, "checkUserIDNotEmpty: ID should not be empty")
 }
 ```
 
@@ -116,7 +116,7 @@ Then compose them in the table:
     checks: checkServiceCreateUser(
         checkServiceCreateUserError(""),
         checkUserName("alice"),
-        checkUserIDNotEmpty(),
+        checkUserIDNotEmpty,
     ),
 },
 ```
