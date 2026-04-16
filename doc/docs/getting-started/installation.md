@@ -9,6 +9,21 @@
 go install golang.org/x/tools/cmd/goimports@latest
 ```
 
+## Install via Homebrew (macOS and Linux)
+
+```bash
+brew tap padiazg/go-testgen
+brew install go-testgen
+```
+
+Homebrew places the binary in its own prefix and adds it to `PATH` automatically. To upgrade later:
+
+```bash
+brew upgrade go-testgen
+```
+
+The tap repository is at [github.com/padiazg/homebrew-go-testgen](https://github.com/padiazg/homebrew-go-testgen).
+
 ## Install via `go install`
 
 ```bash
@@ -41,5 +56,5 @@ receiver_var_name: "s"
 result_var_name: "r"
 use_testify: true
 add_todo_cases: true
-number_of_todos: 1
+number_of_todos: 2
 ```
