@@ -39,7 +39,7 @@ jobs:
         run: pip install mkdocs-material pymdown-extensions
 
       - name: Build docs
-        working-directory: 'doc'
+        # working-directory: '.'
         run: pwd && mkdocs build
         env:
           ANALYTICS_ID:  ${{ secrets.ANALYTICS_ID }}
@@ -47,7 +47,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'doc/site'
+          path: 'site'
 
   deploy:
     environment:
