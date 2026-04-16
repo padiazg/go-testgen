@@ -1,6 +1,6 @@
 # go-testgen
 
-**go-testgen** is a CLI tool that generates unit test scaffolding for Go projects in "padiazg style": closure-based check functions, a `before` hook for mock setup, and table-driven tests that compose cleanly as test suites grow.
+**go-testgen** is a CLI tool that generates unit test scaffolding for Go projects. It produces closure-based check functions, a `before` hook for mock setup, and table-driven tests that compose cleanly as test suites grow.
 
 ## What It Does
 
