@@ -9,3 +9,4 @@ bin/
 doc/site
 go-testgen
 testgen
+*.out

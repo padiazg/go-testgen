@@ -86,6 +86,10 @@ nav:
     - Adding Check Functions: workflow/adding-checks.md
   - Configuration: configuration/index.md
   - Examples: examples/index.md
+  - Resources:
+    - resources/index.md
+    - Test Coverage: resources/test-coverage.md
+    - Mutation Testing: resources/mutation-test.md
   - Changelog: changelog.md
 
 extra:
