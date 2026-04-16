@@ -40,7 +40,7 @@ jobs:
 
       - name: Build docs
         working-directory: 'doc'
-        run: mkdocs build
+        run: pwd && mkdocs build
         env:
           ANALYTICS_ID:  ${{ secrets.ANALYTICS_ID }}
 
