@@ -29,6 +29,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -38,16 +40,10 @@ jobs:
       - name: Install MkDocs
         run: pip install mkdocs-material pymdown-extensions
 
-      - name: Build docs
-        working-directory: 'doc'
-        run: pwd && mkdocs build
+      - name: Deploy
+        run: mkdocs gh-deploy --force
         env:
           ANALYTICS_ID:  ${{ secrets.ANALYTICS_ID }}
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: 'doc/site'
 
   deploy:
     environment:
