@@ -5,4 +5,7 @@ bin/
 !README.md
 !CLAUDE.md
 !AGENTS.md
+!doc/**/*.md
+doc/site
 go-testgen
+testgen
