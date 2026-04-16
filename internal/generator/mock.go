@@ -7,7 +7,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/padiazg/testgen/internal/analyzer"
+	"github.com/padiazg/go-testgen/internal/analyzer"
 )
 
 const mockTemplate = `package {{.Package}}

@@ -21,6 +21,7 @@ type Config struct {
 	GenerateChecks  bool   `mapstructure:"generate_checks"`
 	AddTODOCases    bool   `mapstructure:"add_todo_cases"`
 	NumberOfTODOs   int    `mapstructure:"number_of_todos"`
+	TestStyle       string `mapstructure:"test_style"` // "check" | "table" | "simple"; empty = "check"
 }
 
 func DefaultConfig() *Config {
@@ -50,16 +51,16 @@ func Load(styleFile string) (*Config, error) {
 		}
 
 		searchPaths := []string{
-			".testgen.yaml",
-			".testgen.yml",
-			".testgen.json",
+			".go-testgen.yaml",
+			".go-testgen.yml",
+			".go-testgen.json",
 		}
 
 		if home != "" {
 			searchPaths = append(searchPaths,
-				filepath.Join(home, ".testgen.yaml"),
-				filepath.Join(home, ".testgen.yml"),
-				filepath.Join(home, ".testgen.json"),
+				filepath.Join(home, ".go-testgen.yaml"),
+				filepath.Join(home, ".go-testgen.yml"),
+				filepath.Join(home, ".go-testgen.json"),
 			)
 		}
 

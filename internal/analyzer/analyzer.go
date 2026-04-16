@@ -87,6 +87,9 @@ func Load(pkgPattern, funcSpec string) (*FuncInfo, error) {
 					continue
 				}
 				info.Receiver.IsPointer = isPointer
+
+				// Find factory function for this receiver type
+				info.FactoryFunc = findFactoryFunc(pkg, recvType)
 			} else if fn.Recv != nil {
 				continue
 			}
@@ -380,6 +383,8 @@ func typeToString(expr ast.Expr) string {
 		return "interface{}"
 	case *ast.StructType:
 		return "struct{}"
+	case *ast.Ellipsis:
+		return "..." + typeToString(t.Elt)
 	default:
 		return ""
 	}
@@ -467,4 +472,38 @@ func FindFileInSrc(pkgPattern, funcName string) (string, error) {
 
 func Getwd() (string, error) {
 	return os.Getwd()
+}
+
+// findFactoryFunc searches for a factory function that returns *receiverType.
+// It looks for functions starting with "New" that return a pointer to the receiver type.
+func findFactoryFunc(pkg *packages.Package, receiverType string) string {
+	if pkg.Syntax == nil {
+		return ""
+	}
+
+	for _, syn := range pkg.Syntax {
+		for _, decl := range syn.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok {
+				continue
+			}
+			// Skip methods (functions with receivers)
+			if fn.Recv != nil {
+				continue
+			}
+			// Look for functions starting with "New"
+			if !strings.HasPrefix(fn.Name.Name, "New") {
+				continue
+			}
+			// Check if it returns *receiverType
+			if fn.Type.Results == nil || len(fn.Type.Results.List) == 0 {
+				continue
+			}
+			retType := typeExprToString(fn.Type.Results.List[0].Type)
+			if retType == "*"+receiverType {
+				return fn.Name.Name
+			}
+		}
+	}
+	return ""
 }

@@ -12,9 +12,10 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-// ScanPackage analyzes all exported functions/methods in a package and
+// ScanPackage analyzes all functions/methods in a package and
 // returns their test status, interface dependencies, and mock file status.
-func ScanPackage(pkgPattern string) (*ScanResult, error) {
+// If includeUnexported is true, also includes unexported functions.
+func ScanPackage(pkgPattern string, includeUnexported bool) (*ScanResult, error) {
 	fset := token.NewFileSet()
 	cfg := &packages.Config{
 		Mode: packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo |
@@ -60,7 +61,10 @@ func ScanPackage(pkgPattern string) (*ScanResult, error) {
 
 		for _, decl := range syn.Decls {
 			fn, ok := decl.(*ast.FuncDecl)
-			if !ok || !fn.Name.IsExported() {
+			if !ok {
+				continue
+			}
+			if !fn.Name.IsExported() && !includeUnexported {
 				continue
 			}
 			summary := buildFuncSummary(fn, pkg, aliases, sourceDir)
@@ -69,6 +73,62 @@ func ScanPackage(pkgPattern string) (*ScanResult, error) {
 	}
 
 	return result, nil
+}
+
+// signatureInfo holds metadata extracted from a function signature for heuristics.
+type signatureInfo struct {
+	HasContext       bool
+	NumParams        int
+	NumResults       int
+	HasError         bool
+	HasPointerResult bool
+	HasSliceResult   bool
+	ReturnsInterface bool
+}
+
+// inspectSignature extracts basic signature metadata used for style suggestion heuristics.
+func inspectSignature(fn *ast.FuncDecl, pkg *packages.Package) signatureInfo {
+	var info signatureInfo
+	if fn.Type.Params != nil {
+		for _, field := range fn.Type.Params.List {
+			typeStr := typeToString(field.Type)
+			count := len(field.Names)
+			if count == 0 {
+				count = 1
+			}
+			if typeStr == "context.Context" {
+				info.HasContext = true
+				continue
+			}
+			info.NumParams += count
+		}
+	}
+	if fn.Type.Results != nil {
+		for _, field := range fn.Type.Results.List {
+			typeStr := typeToString(field.Type)
+			count := len(field.Names)
+			if count == 0 {
+				count = 1
+			}
+			info.NumResults += count
+			if typeStr == "error" {
+				info.HasError = true
+			} else if strings.HasPrefix(typeStr, "*") {
+				info.HasPointerResult = true
+			} else if strings.HasPrefix(typeStr, "[]") {
+				info.HasSliceResult = true
+			}
+			// Check if return type is an interface
+			if pkg != nil && pkg.TypesInfo != nil {
+				if tv, ok := pkg.TypesInfo.Types[field.Type]; ok {
+					if _, isIface := tv.Type.Underlying().(*types.Interface); isIface {
+						info.ReturnsInterface = true
+					}
+				}
+			}
+		}
+	}
+	return info
 }
 
 // collectAllAliases gathers importPath→alias from every source file in the package.
@@ -113,14 +173,24 @@ func buildFuncSummary(
 	// Test function name — reuse logic from FindTestFuncName.
 	testFuncName := deriveTestFuncName(fn, receiverType)
 
+	sig := inspectSignature(fn, pkg)
+
 	summary := FuncSummary{
-		Name:         fn.Name.Name,
-		ReceiverType: receiverType,
-		IsMethod:     receiverType != "",
-		Signature:    buildSignatureStr(fn, receiverType),
-		FuncSpec:     funcSpec,
-		TestFuncName: testFuncName,
-		TestExists:   testFuncExistsInDir(sourceDir, testFuncName),
+		Name:             fn.Name.Name,
+		ReceiverType:     receiverType,
+		IsMethod:         receiverType != "",
+		IsExported:       fn.Name.IsExported(),
+		Signature:        buildSignatureStr(fn, receiverType),
+		FuncSpec:         funcSpec,
+		TestFuncName:     testFuncName,
+		TestExists:       testFuncExistsInDir(sourceDir, testFuncName),
+		HasContext:       sig.HasContext,
+		NumParams:        sig.NumParams,
+		NumResults:       sig.NumResults,
+		HasError:         sig.HasError,
+		HasPointerResult: sig.HasPointerResult,
+		HasSliceResult:   sig.HasSliceResult,
+		ReturnsInterface: sig.ReturnsInterface,
 	}
 
 	summary.InterfaceDeps = extractInterfaceDeps(fn, pkg, aliases, sourceDir)
@@ -175,19 +245,27 @@ func buildSignatureStr(fn *ast.FuncDecl, receiverType string) string {
 }
 
 // deriveTestFuncName mirrors FindTestFuncName without needing a full FuncInfo.
+// Adds underscore prefix if the name starts with lowercase for Go test recognition.
 func deriveTestFuncName(fn *ast.FuncDecl, receiverType string) string {
+	var base string
 	if receiverType != "" {
-		return "Test" + receiverType + "_" + fn.Name.Name
-	}
-	// Constructor heuristic: New or NewXxx returning a pointer.
-	if strings.HasPrefix(fn.Name.Name, "New") && fn.Type.Results != nil && len(fn.Type.Results.List) > 0 {
+		base = receiverType + "_" + fn.Name.Name
+	} else if strings.HasPrefix(fn.Name.Name, "New") && fn.Type.Results != nil && len(fn.Type.Results.List) > 0 {
 		firstRet := typeToString(fn.Type.Results.List[0].Type)
 		typeName := strings.TrimPrefix(firstRet, "*")
 		if typeName != "" && typeName != firstRet {
-			return "Test" + typeName + "_" + fn.Name.Name
+			base = typeName + "_" + fn.Name.Name
+		} else {
+			base = fn.Name.Name
 		}
+	} else {
+		base = fn.Name.Name
 	}
-	return "Test" + fn.Name.Name
+	// If first letter is lowercase, prefix with underscore for Go test recognition
+	if len(base) > 0 && base[0] >= 'a' && base[0] <= 'z' {
+		return "Test_" + base
+	}
+	return "Test" + base
 }
 
 // testFuncExistsInDir checks if testFuncName exists in any _test.go file in sourceDir.

@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-make build      # build to bin/testgen
+make build      # build to bin/go-testgen
 make test       # go test ./... -v -count=1
 make lint       # golangci-lint run ./...
 make install    # install to $GOPATH/bin
@@ -19,7 +19,7 @@ go test ./internal/analyzer/... -run TestName  # single test
 Three-stage pipeline: **analyze → generate → write**
 
 ```
-cmd/testgen/main.go          # Cobra CLI: gen + inspect commands
+cmd/go-testgen/main.go          # Cobra CLI: gen + inspect commands
 internal/analyzer/           # AST analysis via golang.org/x/tools/go/packages
   analyzer.go                # Load() entry, AST traversal → FuncInfo
   funcinfo.go                # FuncInfo struct (params, results, receiver)
@@ -27,8 +27,8 @@ internal/analyzer/           # AST analysis via golang.org/x/tools/go/packages
 internal/generator/          # Text/template test scaffolding
   generator.go               # FuncInfo + config → test code
 internal/config/             # Viper-based YAML/JSON config
-  config.go                  # Loads .testgen.yaml with defaults
-testgen.go                   # Stub Engine/Config types (root package)
+  config.go                  # Loads .go-testgen.yaml with defaults
+go-testgen.go                   # Stub Engine/Config types (root package)
 ```
 
 **gen flow**: config load → analyze package/func → generate → write/merge  
@@ -51,7 +51,7 @@ func TestReceiver_Method(t *testing.T) {
 }
 ```
 
-## Config (.testgen.yaml)
+## Config (.go-testgen.yaml)
 
 Key options affecting generation behavior:
 
@@ -69,14 +69,14 @@ generate_checks: true
 ## CLI Usage
 
 ```bash
-testgen gen ./pkg/path FuncName                    # function test
-testgen gen ./pkg/path ReceiverType.MethodName     # method test
-testgen gen ./pkg/path New                         # constructor test
-testgen inspect ./pkg/path FuncName                # dump FuncInfo JSON
-testgen gen ./pkg/path FuncName --dry-run          # preview only
+go-testgen gen ./pkg/path FuncName                    # function test
+go-testgen gen ./pkg/path ReceiverType.MethodName     # method test
+go-testgen gen ./pkg/path New                         # constructor test
+go-testgen inspect ./pkg/path FuncName                # dump FuncInfo JSON
+go-testgen gen ./pkg/path FuncName --dry-run          # preview only
 ```
 
 ## Key Files for Context
 
-- `testgen-plan.md` — detailed design decisions and implementation notes
+- `go-testgen-plan.md` — detailed design decisions and implementation notes
 - `AGENTS.md` — agent/tool integration guidance

@@ -1,0 +1,94 @@
+site_name: go-testgen
+site_description: CLI scaffolding tool for Go unit tests
+site_url: https://padiazg.github.io/go-testgen
+repo_url: https://github.com/padiazg/go-testgen
+repo_name: padiazg/go-testgen
+edit_uri: edit/main/doc/docs/
+
+theme:
+  name: material
+  # logo: https://raw.githubusercontent.com/padiazg/go-testgen/master/logo.png
+  # favicon: https://raw.githubusercontent.com/padiazg/go-testgen/master/logo.png
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+    - toc.follow
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+  - Concepts:
+    - Check Functions: concepts/checks.md
+    - Mocks: concepts/mocks.md
+  - Commands:
+    - gen: commands/gen.md
+    - inspect: commands/inspect.md
+    - report: commands/report.md
+  - Test Styles:
+    - Overview: test-styles/index.md
+    - check (default): test-styles/check.md
+    - table: test-styles/table.md
+    - simple: test-styles/simple.md
+  - Workflow:
+    - Adding Test Cases: workflow/adding-test-cases.md
+    - Adding Check Functions: workflow/adding-checks.md
+  - Configuration: configuration/index.md
+  - Examples: examples/index.md
+  - Changelog: changelog.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/padiazg/go-testgen

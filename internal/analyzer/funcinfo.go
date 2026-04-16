@@ -9,11 +9,12 @@ type FuncInfo struct {
 	Params        []ParamInfo
 	Results       []ResultInfo
 	HasError      bool
-	HasContext     bool
+	HasContext    bool
 	Doc           string
 	Imports       []string
 	ImportAliases map[string]string // importPath -> local alias
 	SourceFile    string
+	FactoryFunc   string // factory function name for methods (e.g., "NewClient")
 }
 
 type ReceiverInfo struct {

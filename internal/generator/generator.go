@@ -3,114 +3,49 @@ package generator
 import (
 	"bytes"
 	"fmt"
-	"path/filepath"
-	"slices"
 	"strings"
 	"text/template"
 
-	"github.com/padiazg/testgen/internal/analyzer"
-	"github.com/padiazg/testgen/internal/config"
+	"github.com/padiazg/go-testgen/internal/analyzer"
+	"github.com/padiazg/go-testgen/internal/config"
 )
 
-// CollectImports returns the map of importPath -> alias needed for the generated test.
-// Used by callers to inject imports into an existing file during merge.
-func CollectImports(info *analyzer.FuncInfo) map[string]string {
-	result := make(map[string]string)
-
-	add := func(importPath, pkgAlias string) {
-		if importPath == "" || importPath == info.ImportPath || importPath == "context" {
-			return
-		}
-		alias := ""
-		if pkgAlias != "" {
-			parts := strings.Split(importPath, "/")
-			if pkgAlias != parts[len(parts)-1] {
-				alias = pkgAlias
-			}
-		}
-		result[importPath] = alias
-	}
-
-	if info.HasContext {
-		result["context"] = ""
-	}
-	if info.HasError {
-		result["github.com/stretchr/testify/assert"] = ""
-	}
-
-	for _, p := range info.Params {
-		add(p.ImportPath, p.Package)
-	}
-	for _, r := range info.Results {
-		if !r.IsError {
-			add(r.ImportPath, r.Package)
-		}
-	}
-
-	return result
-}
-
-// qualifiedTypeName prepends pkgQualifier to typeName when the type is from an external package.
-// Handles pointer (*) and slice ([]) prefixes correctly.
-func qualifiedTypeName(typeName, pkgQualifier string) string {
-	if pkgQualifier == "" {
-		return typeName
-	}
-	if strings.HasPrefix(typeName, "*") {
-		return "*" + pkgQualifier + "." + typeName[1:]
-	}
-	if strings.HasPrefix(typeName, "[]*") {
-		return "[]*" + pkgQualifier + "." + typeName[3:]
-	}
-	if strings.HasPrefix(typeName, "[]") {
-		return "[]" + pkgQualifier + "." + typeName[2:]
-	}
-	return pkgQualifier + "." + typeName
-}
-
-// buildReturnVars builds the list of variable names for capturing function return values.
-// Multiple non-error results get distinct names (r, r2, r3...).
-func buildReturnVars(results []analyzer.ResultInfo, resultVarName, errorVarName string) []string {
-	var vars []string
-	nonErrIdx := 0
-	for _, r := range results {
-		if r.IsError {
-			vars = append(vars, errorVarName)
-		} else {
-			if nonErrIdx == 0 {
-				vars = append(vars, resultVarName)
-			} else {
-				vars = append(vars, fmt.Sprintf("%s%d", resultVarName, nonErrIdx+1))
-			}
-			nonErrIdx++
-		}
-	}
-	return vars
-}
-
-type Generator struct {
-	cfg *config.Config
-}
-
+// GenerateRequest is the input to any TestGenerator implementation.
 type GenerateRequest struct {
 	Info    *analyzer.FuncInfo
 	OutPkg  string
 	IsMerge bool
 }
 
+// GenerateResult is the output of any TestGenerator implementation.
 type GenerateResult struct {
 	Source  []byte
 	OutFile string
 }
 
-func New(cfg *config.Config) *Generator {
+// CheckGenerator produces table-driven tests with check-function closures.
+type CheckGenerator struct {
+	cfg *config.Config
+}
+
+// Ensure CheckGenerator satisfies the TestGenerator interface at compile time.
+var _ TestGenerator = (*CheckGenerator)(nil)
+
+// NewCheckGenerator creates a CheckGenerator with the given config.
+func NewCheckGenerator(cfg *config.Config) *CheckGenerator {
 	if cfg == nil {
 		cfg = config.DefaultConfig()
 	}
-	return &Generator{cfg: cfg}
+	return &CheckGenerator{cfg: cfg}
 }
 
-func (g *Generator) Generate(req GenerateRequest) (*GenerateResult, error) {
+// New is a convenience alias that returns a TestGenerator using the check style.
+// Kept for backward compatibility with existing callers.
+func New(cfg *config.Config) TestGenerator {
+	return NewCheckGenerator(cfg)
+}
+
+func (g *CheckGenerator) Generate(req GenerateRequest) (*GenerateResult, error) {
 	info := req.Info
 	if info == nil {
 		return nil, fmt.Errorf("FuncInfo is nil")
@@ -134,39 +69,23 @@ func (g *Generator) Generate(req GenerateRequest) (*GenerateResult, error) {
 		checkVarName = "check" + info.Name
 	}
 
-	err := generateCheckType(&buf, checkTypeName, checkVarName, info)
-	if err != nil {
+	if err := generateCheckType(&buf, checkTypeName, checkVarName, info); err != nil {
 		return nil, fmt.Errorf("generate check type: %w", err)
 	}
 
 	if info.HasError {
-		err = generateCheckError(&buf, checkTypeName, info)
-		if err != nil {
+		if err := generateCheckError(&buf, checkTypeName, info); err != nil {
 			return nil, fmt.Errorf("generate check error: %w", err)
 		}
 	}
 
-	err = generateTestTable(&buf, checkTypeName, checkVarName, info, g.cfg)
-	if err != nil {
+	if err := generateTestTable(&buf, checkTypeName, checkVarName, info, g.cfg); err != nil {
 		return nil, fmt.Errorf("generate table: %w", err)
-	}
-
-	var outFile string
-	if info.SourceFile != "" {
-		dir := filepath.Dir(info.SourceFile)
-		base := filepath.Base(info.SourceFile)
-		name := strings.TrimSuffix(base, filepath.Ext(base))
-		outFile = filepath.Join(dir, name+"_test.go")
-	} else {
-		outFile = info.Name + "_test.go"
-		if info.IsMethod && info.Receiver != nil {
-			outFile = strings.ToLower(info.Receiver.TypeName) + "_test.go"
-		}
 	}
 
 	return &GenerateResult{
 		Source:  buf.Bytes(),
-		OutFile: outFile,
+		OutFile: deriveOutFile(info),
 	}, nil
 }
 
@@ -183,7 +102,7 @@ func generateCheckType(buf *bytes.Buffer, checkTypeName, checkVarName string, in
 var {{.CheckVarName}} = func(fns ...{{.CheckTypeName}}) []{{.CheckTypeName}} { return fns }
 `))
 
-	return t.Execute(buf, map[string]interface{}{
+	return t.Execute(buf, map[string]any{
 		"CheckTypeName": checkTypeName,
 		"CheckVarName":  checkVarName,
 		"Params":        strings.Join(paramList, ", "),
@@ -191,8 +110,6 @@ var {{.CheckVarName}} = func(fns ...{{.CheckTypeName}}) []{{.CheckTypeName}} { r
 }
 
 func generateCheckError(buf *bytes.Buffer, checkTypeName string, info *analyzer.FuncInfo) error {
-	// Build params matching the checkFn signature: *testing.T + all results
-	// Non-error results use _ to avoid unused-variable errors.
 	var params []string
 	params = append(params, "t *testing.T")
 	errVarName := "err"
@@ -220,7 +137,7 @@ func check{{.FuncName}}Error(want string) {{.CheckTypeName}} {
 }
 `))
 
-	return t.Execute(buf, map[string]interface{}{
+	return t.Execute(buf, map[string]any{
 		"FuncName":      info.Name,
 		"CheckTypeName": checkTypeName,
 		"Params":        strings.Join(params, ", "),
@@ -229,84 +146,33 @@ func check{{.FuncName}}Error(want string) {{.CheckTypeName}} {
 }
 
 func generateTestTable(buf *bytes.Buffer, checkTypeName, checkVarName string, info *analyzer.FuncInfo, cfg *config.Config) error {
-	receiverVar := "e"
-	if info.IsMethod && info.Receiver != nil {
-		receiverVar = strings.ToLower(info.Receiver.TypeName[:1])
-	}
+	recvVar := receiverVar(info)
+	constructor := isConstructor(info)
 
-	isConstructor := !info.IsMethod && info.Name == "New" && len(info.Results) > 0 && info.Results[0].IsPointer
+	hasResultVars := constructor || (info.IsMethod && info.Receiver != nil) || info.HasError || (len(info.Results) > 0 && !info.Results[0].IsError)
 
-	hasResultVars := isConstructor || (info.IsMethod && info.Receiver != nil) || info.HasError || (len(info.Results) > 0 && !info.Results[0].IsError)
-
-	tableFields := []string{"name string"}
-
-	if info.IsMethod {
-		if len(info.Params) == 0 {
-			tableFields = append(tableFields, "config *Config")
-		} else {
-			for _, p := range info.Params {
-				if p.IsContext {
-					continue
-				}
-				tableFields = append(tableFields, fmt.Sprintf("%s %s", p.Name, qualifiedTypeName(p.TypeName, p.Package)))
-			}
-		}
-	} else {
-		for _, p := range info.Params {
-			if p.IsContext {
-				continue
-			}
-			tableFields = append(tableFields, fmt.Sprintf("%s %s", p.Name, qualifiedTypeName(p.TypeName, p.Package)))
-		}
-	}
-
-	// if info.HasError {
-	// 	tableFields = append(tableFields, "wantErr bool")
-	// }
-
-	if info.IsMethod {
-		tableFields = append(tableFields, fmt.Sprintf("before func(*%s)", info.Receiver.TypeName))
-	}
-
-	tableFields = append(tableFields, "checks []"+checkTypeName)
+	tableFields := buildTableFields(info, "checks []"+checkTypeName)
 	fieldList := strings.Join(tableFields, "\n\t")
 
-	testFuncName := info.Name
+	tfName := testFuncName(info)
 
-	if info.IsMethod {
-		testFuncName = info.Receiver.TypeName + "_" + info.Name
-	} else if isConstructor {
-		testFuncName = strings.TrimPrefix(info.Results[0].TypeName, "*") + "_" + info.Name
-	}
+	args := buildArgs(info)
 
 	var setupLines []string
-	var args []string
-
-	if info.HasContext {
-		args = append(args, "context.Background()")
-	}
-
-	for _, p := range info.Params {
-		if p.IsContext {
-			continue
-		}
-		args = append(args, "tt."+p.Name)
-	}
-
 	var resultVars string
 
-	if isConstructor {
+	if constructor {
 		resultVarName := strings.ToLower(info.Results[0].TypeName[1:])
 		setupLines = append(setupLines, fmt.Sprintf("%s := New(%s)", resultVarName, "tt."+info.Params[0].Name))
 		resultVars = resultVarName
 	} else if info.IsMethod {
-		setupLines = append(setupLines, fmt.Sprintf("%s := New(nil)", receiverVar))
+		setupLines = append(setupLines, buildReceiverInit(info, recvVar))
 
 		if len(info.Params) > 0 {
-			setupLines = append(setupLines, fmt.Sprintf("if tt.before != nil {\n\t\t\ttt.before(%s)\n\t\t}", receiverVar))
+			setupLines = append(setupLines, fmt.Sprintf("if tt.before != nil {\n\t\t\ttt.before(%s)\n\t\t}", recvVar))
 		}
 
-		callExpr := receiverVar + "." + info.Name + "(" + strings.Join(args, ", ") + ")"
+		callExpr := recvVar + "." + info.Name + "(" + strings.Join(args, ", ") + ")"
 
 		returnVars := buildReturnVars(info.Results, cfg.ResultVarName, cfg.ErrorVarName)
 		if len(returnVars) > 0 {
@@ -353,81 +219,12 @@ func generateTestTable(buf *bytes.Buffer, checkTypeName, checkVarName string, in
 }
 `))
 
-	return t.Execute(buf, map[string]interface{}{
-		"TestFuncName":  testFuncName,
+	return t.Execute(buf, map[string]any{
+		"TestFuncName":  tfName,
 		"FieldList":     fieldList,
 		"CheckVarName":  checkVarName,
 		"SetupBlock":    setupBlock,
 		"ResultVars":    resultVars,
 		"HasResultVars": hasResultVars,
 	})
-}
-
-func generateImports(info *analyzer.FuncInfo) string {
-	type importEntry struct {
-		Path  string
-		Alias string // empty = no explicit alias
-	}
-
-	var imports []importEntry
-	seen := make(map[string]bool)
-
-	addImport := func(importPath, pkgAlias string) {
-		if importPath == "" || seen[importPath] || importPath == info.ImportPath || importPath == "context" {
-			return
-		}
-		seen[importPath] = true
-
-		// Determine if an explicit alias is needed:
-		// only emit alias when it differs from the package's own name.
-		alias := ""
-		if pkgAlias != "" {
-			// Resolve the package's actual name via ImportAliases (set by analyzer).
-			// If the source already used an alias, pkgAlias IS that alias.
-			// Check if it differs from the last path segment (Go default import name).
-			parts := strings.Split(importPath, "/")
-			defaultName := parts[len(parts)-1]
-			if pkgAlias != defaultName {
-				alias = pkgAlias
-			}
-		}
-		imports = append(imports, importEntry{Path: importPath, Alias: alias})
-	}
-
-	for _, p := range info.Params {
-		addImport(p.ImportPath, p.Package)
-	}
-
-	for _, r := range info.Results {
-		if !r.IsError {
-			addImport(r.ImportPath, r.Package)
-		}
-	}
-
-	slices.SortFunc(imports, func(a, b importEntry) int {
-		return strings.Compare(a.Path, b.Path)
-	})
-
-	var lines []string
-	lines = append(lines, "import (")
-	lines = append(lines, "\t\"testing\"")
-
-	if info.HasContext {
-		lines = append(lines, "\n\t\"context\"")
-	}
-
-	if info.HasError {
-		lines = append(lines, "\n\t\"github.com/stretchr/testify/assert\"")
-	}
-
-	for _, imp := range imports {
-		if imp.Alias != "" {
-			lines = append(lines, fmt.Sprintf("\n\t%s \"%s\"", imp.Alias, imp.Path))
-		} else {
-			lines = append(lines, "\n\t\""+imp.Path+"\"")
-		}
-	}
-
-	lines = append(lines, ")\n\n")
-	return strings.Join(lines, "\n")
 }
