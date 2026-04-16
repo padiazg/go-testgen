@@ -30,11 +30,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure Git Credentials
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -43,11 +38,16 @@ jobs:
       - name: Install MkDocs
         run: pip install mkdocs-material pymdown-extensions
 
-      - name: Deploy
-        working-directory: doc
-        run: pwd && ls -l && mkdocs gh-deploy --force
+      - name: Build docs
+        working-directory: 'doc'
+        run: pwd && ls -l && mkdocs build
         env:
           ANALYTICS_ID:  ${{ secrets.ANALYTICS_ID }}
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'doc/site'
 
   deploy:
     environment:
