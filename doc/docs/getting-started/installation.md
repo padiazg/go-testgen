@@ -9,6 +9,14 @@
 go install golang.org/x/tools/cmd/goimports@latest
 ```
 
+## Install via `go install`
+
+```bash
+go install github.com/padiazg/go-testgen@latest
+```
+
+The binary is placed in `$GOPATH/bin` (or `$GOBIN` if set). Make sure that directory is in your `PATH`.
+
 ## Install via Homebrew (macOS and Linux)
 
 ```bash
@@ -23,14 +31,6 @@ brew upgrade go-testgen
 ```
 
 The tap repository is at [github.com/padiazg/homebrew-go-testgen](https://github.com/padiazg/homebrew-go-testgen).
-
-## Install via `go install`
-
-```bash
-go install github.com/padiazg/go-testgen@latest
-```
-
-The binary is placed in `$GOPATH/bin` (or `$GOBIN` if set). Make sure that directory is in your `PATH`.
 
 ## Build from Source
 
