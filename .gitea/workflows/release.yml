@@ -34,7 +34,7 @@ jobs:
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --verbose --clean --auto-snapshot --config .goreleaser.local.yml
+          args: release --clean --auto-snapshot --parallelism 2 --config .goreleaser.local.yml
         env:
           GITEA_TOKEN: ${{ secrets.ACTION_TOKEN }}
           GITEA_URL: ${{ env.GITEA_INSTANCE_URL }}

@@ -66,7 +66,7 @@ gitea_urls:
 release:
   gitea:
     owner: pato
-    name: ci-test
+    name: go-test
   draft: false
   prerelease: auto
   mode: replace
