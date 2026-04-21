@@ -1,44 +1,44 @@
 package analyzer
 
 type FuncInfo struct {
+	ImportAliases map[string]string // importPath -> local alias
+	Receiver      *ReceiverInfo
+	Doc           string
+	FactoryFunc   string // factory function name for methods (e.g., "NewClient")
+	ImportPath    string
 	Name          string
 	Package       string
-	ImportPath    string
-	IsMethod      bool
-	Receiver      *ReceiverInfo
+	SourceFile    string
+	Imports       []string
 	Params        []ParamInfo
 	Results       []ResultInfo
-	HasError      bool
 	HasContext    bool
-	Doc           string
-	Imports       []string
-	ImportAliases map[string]string // importPath -> local alias
-	SourceFile    string
-	FactoryFunc   string // factory function name for methods (e.g., "NewClient")
+	HasError      bool
+	IsMethod      bool
 }
 
 type ReceiverInfo struct {
 	TypeName  string
-	IsPointer bool
 	Fields    []FieldInfo
+	IsPointer bool
 }
 
 type ParamInfo struct {
-	Name        string
-	TypeName    string
 	ImportPath  string
+	Name        string
+	Package     string
+	TypeName    string
+	IsContext   bool
 	IsInterface bool
 	IsPointer   bool
-	IsContext   bool
-	Package     string
 }
 
 type ResultInfo struct {
-	TypeName   string
 	ImportPath string
+	Package    string // local alias/qualifier (e.g., "userDomain")
+	TypeName   string
 	IsError    bool
 	IsPointer  bool
-	Package    string // local alias/qualifier (e.g., "userDomain")
 }
 
 type FieldInfo struct {

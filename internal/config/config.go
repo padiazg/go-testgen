@@ -9,19 +9,19 @@ import (
 )
 
 type Config struct {
-	ReceiverVarName string `mapstructure:"receiver_var_name"`
-	ErrorVarName    string `mapstructure:"error_var_name"`
-	ResultVarName   string `mapstructure:"result_var_name"`
-	UseTestify      bool   `mapstructure:"use_testify"`
-	UseRequire      bool   `mapstructure:"use_require"`
 	CheckTypePrefix string `mapstructure:"check_type_prefix"`
 	CheckTypeSuffix string `mapstructure:"check_type_suffix"`
+	ErrorVarName    string `mapstructure:"error_var_name"`
 	MockPrefix      string `mapstructure:"mock_prefix"`
-	GenerateMocks   bool   `mapstructure:"generate_mocks"`
-	GenerateChecks  bool   `mapstructure:"generate_checks"`
-	AddTODOCases    bool   `mapstructure:"add_todo_cases"`
-	NumberOfTODOs   int    `mapstructure:"number_of_todos"`
+	ReceiverVarName string `mapstructure:"receiver_var_name"`
+	ResultVarName   string `mapstructure:"result_var_name"`
 	TestStyle       string `mapstructure:"test_style"` // "check" | "table" | "simple"; empty = "check"
+	NumberOfTODOs   int    `mapstructure:"number_of_todos"`
+	AddTODOCases    bool   `mapstructure:"add_todo_cases"`
+	GenerateChecks  bool   `mapstructure:"generate_checks"`
+	GenerateMocks   bool   `mapstructure:"generate_mocks"`
+	UseRequire      bool   `mapstructure:"use_require"`
+	UseTestify      bool   `mapstructure:"use_testify"`
 }
 
 func DefaultConfig() *Config {
