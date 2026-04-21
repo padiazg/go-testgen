@@ -77,9 +77,9 @@ func ScanPackage(pkgPattern string, includeUnexported bool) (*ScanResult, error)
 
 // signatureInfo holds metadata extracted from a function signature for heuristics.
 type signatureInfo struct {
-	HasContext       bool
 	NumParams        int
 	NumResults       int
+	HasContext       bool
 	HasError         bool
 	HasPointerResult bool
 	HasSliceResult   bool

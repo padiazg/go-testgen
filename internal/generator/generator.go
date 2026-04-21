@@ -19,8 +19,8 @@ type GenerateRequest struct {
 
 // GenerateResult is the output of any TestGenerator implementation.
 type GenerateResult struct {
-	Source  []byte
 	OutFile string
+	Source  []byte
 }
 
 // CheckGenerator produces table-driven tests with check-function closures.
