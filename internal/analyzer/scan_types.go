@@ -16,6 +16,7 @@ type FuncSummary struct {
 	Signature        string         `json:"signature"` // fully-qualified types
 	SuggestedStyle   string         `json:"suggestedStyle,omitempty"`
 	TestFuncName     string         `json:"testFuncName"`
+	SourceFile       string         `json:"sourceFile"`
 	InterfaceDeps    []InterfaceDep `json:"interfaceDeps"`
 	NumParams        int            `json:"numParams"`
 	NumResults       int            `json:"numResults"`

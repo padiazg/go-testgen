@@ -10,15 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Factory function instantiation now uses proper placeholder values instead of hardcoded `nil`
+- Report command now shows source file location for each function
 
 ### Changed
 
 - Fixed repo name in GitLab CI settings
+- Renamed site from "go-testgen" to "Go TestGen" in docs
 
 ### Added
 
 - Gitea CI configuration files
 - Homebrew install method documentation in docs
+- `SourceFile` field to scan results for better reporting
 
 ---
 

@@ -67,7 +67,7 @@ func ScanPackage(pkgPattern string, includeUnexported bool) (*ScanResult, error)
 			if !fn.Name.IsExported() && !includeUnexported {
 				continue
 			}
-			summary := buildFuncSummary(fn, pkg, aliases, sourceDir)
+			summary := buildFuncSummary(fn, pkg, aliases, sourceDir, filepath.Base(sourceFile))
 			result.Funcs = append(result.Funcs, summary)
 		}
 	}
@@ -157,7 +157,7 @@ func buildFuncSummary(
 	fn *ast.FuncDecl,
 	pkg *packages.Package,
 	aliases map[string]string,
-	sourceDir string,
+	sourceDir, sourceFile string,
 ) FuncSummary {
 	// Receiver type (strip pointer).
 	receiverType := ""
@@ -183,6 +183,7 @@ func buildFuncSummary(
 		Signature:        buildSignatureStr(fn, receiverType),
 		FuncSpec:         funcSpec,
 		TestFuncName:     testFuncName,
+		SourceFile:       sourceFile,
 		TestExists:       testFuncExistsInDir(sourceDir, testFuncName),
 		HasContext:       sig.HasContext,
 		NumParams:        sig.NumParams,

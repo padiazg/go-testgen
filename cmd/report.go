@@ -68,14 +68,15 @@ func printTableReport(result *analyzer.ScanResult, pkgPattern string) {
 	t.SetStyle(table.StyleLight)
 	t.Style().Options.SeparateRows = true
 
-	t.AppendHeader(table.Row{"Function", "Signature", "Test", "Style", "Interface Deps", "Mocks"})
+	t.AppendHeader(table.Row{"Source", "Function", "Signature", "Test", "Style", "Interface Deps", "Mocks"})
 	t.SetColumnConfigs([]table.ColumnConfig{
 		{Number: 1, Align: text.AlignLeft, WidthMax: 30},
-		{Number: 2, Align: text.AlignLeft, WidthMax: 50},
-		{Number: 3, Align: text.AlignCenter, WidthMax: 4},
-		{Number: 4, Align: text.AlignLeft, WidthMax: 8},
-		{Number: 5, Align: text.AlignLeft, WidthMax: 28},
+		{Number: 2, Align: text.AlignLeft, WidthMax: 30},
+		{Number: 3, Align: text.AlignLeft, WidthMax: 50},
+		{Number: 4, Align: text.AlignCenter, WidthMax: 4},
+		{Number: 5, Align: text.AlignLeft, WidthMax: 8},
 		{Number: 6, Align: text.AlignLeft, WidthMax: 28},
+		{Number: 7, Align: text.AlignLeft, WidthMax: 28},
 	})
 
 	for _, fn := range result.Funcs {
@@ -95,6 +96,7 @@ func printTableReport(result *analyzer.ScanResult, pkgPattern string) {
 		}
 
 		t.AppendRow(table.Row{
+			fn.SourceFile,
 			fn.FuncSpec,
 			fn.Signature,
 			testStatus,
@@ -148,7 +150,7 @@ func printReport(result *analyzer.ScanResult, pkgPattern string) {
 		if fn.TestExists {
 			status = "✓"
 		}
-		fmt.Printf("  %s  %s\n", status, fn.TestFuncName)
+		fmt.Printf("  %s  %s: %s\n", status, fn.SourceFile, fn.TestFuncName)
 		fmt.Printf("       %s\n", fn.Signature)
 
 		if len(fn.InterfaceDeps) > 0 {

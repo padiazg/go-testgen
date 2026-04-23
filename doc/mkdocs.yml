@@ -1,4 +1,4 @@
-site_name: go-testgen
+site_name: Go TestGen
 site_description: CLI scaffolding tool for Go unit tests
 site_url: https://padiazg.github.io/go-testgen
 repo_url: https://github.com/padiazg/go-testgen
