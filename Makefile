@@ -7,7 +7,7 @@ build: ldflags += -X $(pkg).buildDate=$(shell date -Iseconds)
 
 build:
 	@echo "Building go-testgen..."
-	@go build -o testgen -ldflags "$(ldflags)"
+	@go build -o go-testgen -ldflags "$(ldflags)"
 
 test:
 	go test ./... -v -count=1

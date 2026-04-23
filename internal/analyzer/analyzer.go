@@ -77,19 +77,19 @@ func Load(pkgPattern, funcSpec string) (*FuncInfo, error) {
 				if fn.Recv == nil || len(fn.Recv.List) == 0 {
 					continue
 				}
-				recvType := typeExprToString(fn.Recv.List[0].Type)
-				isPointer := false
-				if strings.HasPrefix(recvType, "*") {
-					isPointer = true
-				}
-				recvType = strings.TrimPrefix(recvType, "*")
-				if recvType != receiverType {
-					continue
-				}
-				info.Receiver.IsPointer = isPointer
+recvType := typeExprToString(fn.Recv.List[0].Type)
+			isPointer := false
+			if strings.HasPrefix(recvType, "*") {
+				isPointer = true
+			}
+			recvType = strings.TrimPrefix(recvType, "*")
+			if recvType != receiverType {
+				continue
+			}
+			info.Receiver.IsPointer = isPointer
 
 				// Find factory function for this receiver type
-				info.FactoryFunc = findFactoryFunc(pkg, recvType)
+				info.FactoryFunc, info.FactoryParams = findFactoryFunc(pkg, recvType)
 			} else if fn.Recv != nil {
 				continue
 			}
@@ -476,9 +476,10 @@ func Getwd() (string, error) {
 
 // findFactoryFunc searches for a factory function that returns *receiverType.
 // It looks for functions starting with "New" that return a pointer to the receiver type.
-func findFactoryFunc(pkg *packages.Package, receiverType string) string {
+// Returns the function name and its parameters.
+func findFactoryFunc(pkg *packages.Package, receiverType string) (string, []ParamInfo) {
 	if pkg.Syntax == nil {
-		return ""
+		return "", nil
 	}
 
 	for _, syn := range pkg.Syntax {
@@ -501,9 +502,25 @@ func findFactoryFunc(pkg *packages.Package, receiverType string) string {
 			}
 			retType := typeExprToString(fn.Type.Results.List[0].Type)
 			if retType == "*"+receiverType {
-				return fn.Name.Name
+				// Capture the factory function's parameters
+				var factoryParams []ParamInfo
+				if fn.Type.Params != nil {
+					for _, param := range fn.Type.Params.List {
+						if len(param.Names) <= 1 {
+							pi := resolveParamInfo(param, pkg)
+							factoryParams = append(factoryParams, pi)
+						} else {
+							for _, name := range param.Names {
+								single := &ast.Field{Names: []*ast.Ident{name}, Type: param.Type}
+								pi := resolveParamInfo(single, pkg)
+								factoryParams = append(factoryParams, pi)
+							}
+						}
+					}
+				}
+				return fn.Name.Name, factoryParams
 			}
 		}
 	}
-	return ""
+	return "", nil
 }

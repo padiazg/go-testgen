@@ -4,7 +4,8 @@ type FuncInfo struct {
 	ImportAliases map[string]string // importPath -> local alias
 	Receiver      *ReceiverInfo
 	Doc           string
-	FactoryFunc   string // factory function name for methods (e.g., "NewClient")
+	FactoryFunc   string       // factory function name for methods (e.g., "NewClient")
+	FactoryParams []ParamInfo // factory function parameters (captured for proper instantiation)
 	ImportPath    string
 	Name          string
 	Package       string
