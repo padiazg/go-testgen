@@ -277,7 +277,8 @@ func testFuncName(info *analyzer.FuncInfo) string {
 // receiverVar returns a one-letter variable name for the receiver.
 func receiverVar(info *analyzer.FuncInfo) string {
 	if info.IsMethod && info.Receiver != nil && len(info.Receiver.TypeName) > 0 {
-		return strings.ToLower(info.Receiver.TypeName[:1])
+		// return strings.ToLower(info.Receiver.TypeName[:1])
+		return "s"
 	}
 	return "e"
 }
@@ -286,7 +287,16 @@ func receiverVar(info *analyzer.FuncInfo) string {
 func buildReceiverInit(info *analyzer.FuncInfo, varName string) string {
 	recvType := info.Receiver.TypeName
 	if info.FactoryFunc != "" {
-		return fmt.Sprintf("%s := %s(nil)", varName, info.FactoryFunc)
+		// Build arguments using placeholder values based on param types
+		var args []string
+		for _, p := range info.FactoryParams {
+			if p.IsContext {
+				continue
+			}
+			args = append(args, placeholderValue(p.TypeName))
+		}
+		argList := strings.Join(args, ", ")
+		return fmt.Sprintf("%s := %s(%s)", varName, info.FactoryFunc, argList)
 	}
 	if info.Receiver.IsPointer {
 		return fmt.Sprintf("%s := &%s{}", varName, recvType)

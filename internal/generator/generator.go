@@ -158,14 +158,18 @@ func generateTestTable(buf *bytes.Buffer, checkTypeName, checkVarName string, in
 
 	args := buildArgs(info)
 
-	var setupLines []string
-	var resultVars string
+	var (
+		setupLines []string
+		resultVars string
+	)
 
-	if constructor {
+	switch {
+	case constructor:
 		resultVarName := strings.ToLower(info.Results[0].TypeName[1:])
 		setupLines = append(setupLines, fmt.Sprintf("%s := New(%s)", resultVarName, "tt."+info.Params[0].Name))
 		resultVars = resultVarName
-	} else if info.IsMethod {
+
+	case info.IsMethod:
 		setupLines = append(setupLines, buildReceiverInit(info, recvVar))
 
 		if len(info.Params) > 0 {
@@ -181,7 +185,8 @@ func generateTestTable(buf *bytes.Buffer, checkTypeName, checkVarName string, in
 		} else {
 			setupLines = append(setupLines, callExpr)
 		}
-	} else {
+
+	default:
 		callExpr := info.Name + "(" + strings.Join(args, ", ") + ")"
 
 		returnVars := buildReturnVars(info.Results, cfg.ResultVarName, cfg.ErrorVarName)
