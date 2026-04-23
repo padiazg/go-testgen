@@ -66,6 +66,17 @@ Mock files are written to `mock_<interfacename>_test.go` in the same directory.
 
 If the target `_test.go` already exists but does not contain the test function, go-testgen **appends** the new test and injects any missing imports. It never overwrites an existing test function.
 
+## Factory Function Instantiation
+
+When generating tests for methods, go-testgen looks for a factory function (e.g., `NewClient`, `NewService`) that returns a pointer to the receiver type. If found, the test instantiates the receiver using the factory function with placeholder values matching each parameter's type:
+
+- `string` → `"value"`
+- `int`/`int64` → `0`
+- `bool` → `false`
+- Other types → `nil`
+
+This produces idiomatic initialization instead of `&Type{}` or `Type{}`. Replace placeholders with actual test values before running tests.
+
 ## Test Styles
 
 | Style | Description | When to use |
