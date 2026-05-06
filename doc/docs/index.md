@@ -31,9 +31,9 @@ The central idea. Instead of `want` fields, each assertion is a named closure (`
 
 | Style | Flag | Best for |
 |-------|------|---------|
-| `check` (default) | `--test-style check` | Methods, constructors, anything with multiple assertions |
-| `table` | `--test-style table` | Pure transformation functions |
-| `simple` | `--test-style simple` | Single-path utilities |
+| `check` (default) | `--style check` | Methods, constructors, anything with multiple assertions |
+| `table` | `--style table` | Pure transformation functions |
+| `simple` | `--style simple` | Single-path utilities |
 
 → [Compare Test Styles](test-styles/index.md)
 

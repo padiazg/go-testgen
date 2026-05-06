@@ -41,9 +41,9 @@ Note: `--mock-from` is only included in the suggestion when the mock file does n
 ## Suggested Style (Experimental)
 
 !!! warning "Experimental"
-    Style suggestion is experimental. It applies static heuristics to the function's signature — it has no knowledge of business logic, naming conventions, or test complexity. Always review the suggested `--test-style` before running `gen` and override it when it does not fit.
+    Style suggestion is experimental. It applies static heuristics to the function's signature — it has no knowledge of business logic, naming conventions, or test complexity. Always review the suggested `--style` before running `gen` and override it when it does not fit.
 
-When the inferred style is not the default (`check`), the `Suggest:` line includes a `--test-style` flag. The decision follows a fixed priority chain — **first match wins**:
+When the inferred style is not the default (`check`), the `Suggest:` line includes a `--style` flag. The decision follows a fixed priority chain — **first match wins**:
 
 | Priority | Condition | Suggested style |
 |----------|-----------|-----------------|
@@ -69,10 +69,10 @@ When the inferred style is not the default (`check`), the `Suggest:` line includ
 
 | Situation | Override |
 |-----------|----------|
-| `table` or `simple` suggested but function mutates state | `--test-style check` |
-| `check` suggested but function is a pure converter | `--test-style table` |
-| `simple` suggested but you want multiple parameterized cases | `--test-style table` or `--test-style check` |
-| Any case where the default is inconvenient | `--test-style <style>` |
+| `table` or `simple` suggested but function mutates state | `--style check` |
+| `check` suggested but function is a pure converter | `--style table` |
+| `simple` suggested but you want multiple parameterized cases | `--style table` or `--style check` |
+| Any case where the default is inconvenient | `--style <style>` |
 
 The suggestion is a starting point, not a prescription.
 

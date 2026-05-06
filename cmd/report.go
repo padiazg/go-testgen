@@ -115,7 +115,7 @@ func printTableReport(result *analyzer.ScanResult, pkgPattern string) {
 		}
 		cmd := "  go-testgen gen " + pkgPattern + " " + fn.FuncSpec
 		if fn.SuggestedStyle != "" && fn.SuggestedStyle != "check" {
-			cmd += " --test-style " + fn.SuggestedStyle
+			cmd += " --style " + fn.SuggestedStyle
 		}
 		var mockArgs []string
 		for _, dep := range fn.InterfaceDeps {
@@ -168,7 +168,7 @@ func printReport(result *analyzer.ScanResult, pkgPattern string) {
 			// Build the suggested gen command.
 			cmd := "go-testgen gen " + pkgPattern + " " + fn.FuncSpec
 			if fn.SuggestedStyle != "" && fn.SuggestedStyle != "check" {
-				cmd += " --test-style " + fn.SuggestedStyle
+				cmd += " --style " + fn.SuggestedStyle
 			}
 			var mockArgs []string
 			for _, dep := range fn.InterfaceDeps {

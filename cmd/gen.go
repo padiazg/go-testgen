@@ -82,7 +82,7 @@ func runGen(cmd *cobra.Command, args []string) error {
 	}
 	testStyle, err := generator.ParseTestStyle(styleName)
 	if err != nil {
-		return fmt.Errorf("invalid --test-style: %w", err)
+		return fmt.Errorf("invalid --style: %w", err)
 	}
 
 	gen, err := generator.NewForStyle(testStyle, cfg)

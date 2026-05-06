@@ -1,12 +1,12 @@
 # Test Styles
 
-go-testgen supports three test generation styles. Pass `--test-style <name>` to `gen` to select one.
+go-testgen supports three test generation styles. Pass `--style <name>` to `gen` to select one.
 
 | Style | Flag value | Default? | Description |
 |-------|-----------|----------|-------------|
-| [Check](check.md) | `--test-style check` | Yes | Table-driven + closure check functions |
-| [Table](table.md) | `--test-style table` | No | Table-driven + `want` value fields |
-| [Simple](simple.md) | `--test-style simple` | No | Standalone function, no table |
+| [Check](check.md) | `--style check` | Yes | Table-driven + closure check functions |
+| [Table](table.md) | `--style table` | No | Table-driven + `want` value fields |
+| [Simple](simple.md) | `--style simple` | No | Standalone function, no table |
 
 ## Which Style to Use
 
@@ -40,4 +40,4 @@ You can set a project-wide default style in `.go-testgen.yaml`:
 test_style: check   # or table, simple
 ```
 
-The `--test-style` flag always overrides the config file.
+The `--style` flag always overrides the config file.
