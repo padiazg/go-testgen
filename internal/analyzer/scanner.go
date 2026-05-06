@@ -26,14 +26,60 @@ func ScanPackage(pkgPattern string, includeUnexported bool) (*ScanResult, error)
 	if err != nil {
 		return nil, fmt.Errorf("load package: %w", err)
 	}
+
+	// When pattern is "." and the directory has no .go files but has go.mod,
+	// retry with "./..." to scan all subpackages (module root case).
+	if pkgPattern == "." && len(pkgs) == 1 && len(pkgs[0].GoFiles) == 0 && isGoModPresent(".") {
+		return ScanPackage("./...", includeUnexported)
+	}
+
 	if len(pkgs) == 0 {
 		return nil, fmt.Errorf("no package found for %s", pkgPattern)
 	}
+
+	// If multiple packages were loaded (e.g. "./..."), merge results from all.
+	if len(pkgs) > 1 {
+		var merged ScanResult
+		for _, p := range pkgs {
+			if len(p.Errors) > 0 {
+				return nil, fmt.Errorf("package errors: %v", p.Errors[0])
+			}
+			sub, err := scanSinglePackage(p, includeUnexported)
+			if err != nil {
+				return nil, err
+			}
+			merged.Funcs = append(merged.Funcs, sub.Funcs...)
+		}
+		return &merged, nil
+	}
+
 	pkg := pkgs[0]
 	if len(pkg.Errors) > 0 {
 		return nil, fmt.Errorf("package errors: %v", pkg.Errors[0])
 	}
 
+	return scanSinglePackage(pkg, includeUnexported)
+}
+
+// isGoModPresent checks whether a go.mod file exists in the given directory.
+func isGoModPresent(dir string) bool {
+	_, err := os.Stat(filepath.Join(dir, "go.mod"))
+	return err == nil
+}
+
+// signatureInfo holds metadata extracted from a function signature for heuristics.
+type signatureInfo struct {
+	NumParams        int
+	NumResults       int
+	HasContext       bool
+	HasError         bool
+	HasPointerResult bool
+	HasSliceResult   bool
+	ReturnsInterface bool
+}
+
+// scanSinglePackage processes a single loaded package and returns its scan result.
+func scanSinglePackage(pkg *packages.Package, includeUnexported bool) (*ScanResult, error) {
 	// Collect import aliases from ALL source files.
 	aliases := collectAllAliases(pkg)
 
@@ -73,17 +119,6 @@ func ScanPackage(pkgPattern string, includeUnexported bool) (*ScanResult, error)
 	}
 
 	return result, nil
-}
-
-// signatureInfo holds metadata extracted from a function signature for heuristics.
-type signatureInfo struct {
-	NumParams        int
-	NumResults       int
-	HasContext       bool
-	HasError         bool
-	HasPointerResult bool
-	HasSliceResult   bool
-	ReturnsInterface bool
 }
 
 // inspectSignature extracts basic signature metadata used for style suggestion heuristics.

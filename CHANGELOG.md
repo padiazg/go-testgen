@@ -5,6 +5,22 @@ All notable changes to go-testgen will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.1.2 - 2026-05-06
+
+### Changed
+
+- Renamed `--test-style` flag to `--style`
+- Fixed typo in license
+- Fixed error when no `.go` file is found at project root but `go.mo` and `go.sum` are present.
+
+### Fixed
+
+- Report command now shows source file location for each function
+
+### Added
+
+- `SourceFile` field to scan results (via internal/analyzer)
+
 ## v0.1.1 - 2026-04-23
 
 ### Fixed
