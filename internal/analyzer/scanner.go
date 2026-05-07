@@ -3,7 +3,6 @@ package analyzer
 import (
 	"fmt"
 	"go/ast"
-	"go/token"
 	"go/types"
 	"os"
 	"path/filepath"
@@ -12,59 +11,50 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+func mergeList(pkgs []*packages.Package) (*ScanResult, error) {
+	var merged ScanResult
+	for _, p := range pkgs {
+		if len(p.Errors) > 0 {
+			return nil, fmt.Errorf("package errors: %v", p.Errors[0])
+		}
+		sub, err := scanSinglePackage(p)
+		if err != nil {
+			return nil, err
+		}
+		merged.Funcs = append(merged.Funcs, sub.Funcs...)
+	}
+	return &merged, nil
+}
+
 // ScanPackage analyzes all functions/methods in a package and
 // returns their test status, interface dependencies, and mock file status.
 // If includeUnexported is true, also includes unexported functions.
-func ScanPackage(pkgPattern string, includeUnexported bool) (*ScanResult, error) {
-	fset := token.NewFileSet()
-	cfg := &packages.Config{
-		Mode: packages.NeedSyntax | packages.NeedTypes | packages.NeedTypesInfo |
-			packages.NeedImports | packages.NeedDeps | packages.NeedFiles | packages.NeedName,
-		Fset: fset,
-	}
-	pkgs, err := packages.Load(cfg, pkgPattern)
+func ScanPackage(pkgPattern string) (*ScanResult, error) {
+	pkgs, err := getPackages(pkgPattern)
 	if err != nil {
 		return nil, fmt.Errorf("load package: %w", err)
 	}
 
 	// When pattern is "." and the directory has no .go files but has go.mod,
 	// retry with "./..." to scan all subpackages (module root case).
-	if pkgPattern == "." && len(pkgs) == 1 && len(pkgs[0].GoFiles) == 0 && isGoModPresent(".") {
-		return ScanPackage("./...", includeUnexported)
-	}
-
-	if len(pkgs) == 0 {
-		return nil, fmt.Errorf("no package found for %s", pkgPattern)
-	}
-
-	// If multiple packages were loaded (e.g. "./..."), merge results from all.
-	if len(pkgs) > 1 {
-		var merged ScanResult
-		for _, p := range pkgs {
-			if len(p.Errors) > 0 {
-				return nil, fmt.Errorf("package errors: %v", p.Errors[0])
-			}
-			sub, err := scanSinglePackage(p, includeUnexported)
-			if err != nil {
-				return nil, err
-			}
-			merged.Funcs = append(merged.Funcs, sub.Funcs...)
+	if checkListError(pkgs) &&
+		pkgPattern == "." &&
+		len(pkgs) == 1 &&
+		len(pkgs[0].GoFiles) == 0 &&
+		len(pkgs[0].Errors) > 0 &&
+		isGoModPresent(".") {
+		pkgs, err = getPackages("./...")
+		if err != nil {
+			return nil, fmt.Errorf("load package: %w", err)
 		}
-		return &merged, nil
 	}
 
-	pkg := pkgs[0]
-	if len(pkg.Errors) > 0 {
-		return nil, fmt.Errorf("package errors: %v", pkg.Errors[0])
+	// // If multiple packages were loaded (e.g. "./..."), merge results from all.
+	if len(pkgs) > 1 {
+		return mergeList(pkgs)
 	}
 
-	return scanSinglePackage(pkg, includeUnexported)
-}
-
-// isGoModPresent checks whether a go.mod file exists in the given directory.
-func isGoModPresent(dir string) bool {
-	_, err := os.Stat(filepath.Join(dir, "go.mod"))
-	return err == nil
+	return scanSinglePackage(pkgs[0])
 }
 
 // signatureInfo holds metadata extracted from a function signature for heuristics.
@@ -79,7 +69,7 @@ type signatureInfo struct {
 }
 
 // scanSinglePackage processes a single loaded package and returns its scan result.
-func scanSinglePackage(pkg *packages.Package, includeUnexported bool) (*ScanResult, error) {
+func scanSinglePackage(pkg *packages.Package) (*ScanResult, error) {
 	// Collect import aliases from ALL source files.
 	aliases := collectAllAliases(pkg)
 
@@ -108,9 +98,6 @@ func scanSinglePackage(pkg *packages.Package, includeUnexported bool) (*ScanResu
 		for _, decl := range syn.Decls {
 			fn, ok := decl.(*ast.FuncDecl)
 			if !ok {
-				continue
-			}
-			if !fn.Name.IsExported() && !includeUnexported {
 				continue
 			}
 			summary := buildFuncSummary(fn, pkg, aliases, sourceDir, filepath.Base(sourceFile))

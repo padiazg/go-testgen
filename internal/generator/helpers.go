@@ -154,6 +154,7 @@ func generateImports(info *analyzer.FuncInfo) string {
 	if info.HasContext {
 		lines = append(lines, "\n\t\"context\"")
 	}
+
 	if info.HasError || hasNonErrorResults {
 		lines = append(lines, "\n\t\"github.com/stretchr/testify/assert\"")
 	}

@@ -14,30 +14,16 @@ import (
 )
 
 func Load(pkgPattern, funcSpec string) (*FuncInfo, error) {
-	cfg := &packages.Config{
-		Mode: packages.NeedSyntax |
-			packages.NeedTypes |
-			packages.NeedTypesInfo |
-			packages.NeedImports |
-			packages.NeedDeps |
-			packages.NeedFiles |
-			packages.NeedName,
-		Fset: token.NewFileSet(),
-	}
-
-	pkgs, err := packages.Load(cfg, pkgPattern)
+	pkgs, err := getPackages(pkgPattern)
 	if err != nil {
 		return nil, fmt.Errorf("load package: %w", err)
-	}
-
-	if len(pkgs) == 0 {
-		return nil, fmt.Errorf("no package found for pattern: %s", pkgPattern)
 	}
 
 	pkg := pkgs[0]
 	if len(pkg.Errors) > 0 {
 		return nil, fmt.Errorf("package error: %v", pkg.Errors[0])
 	}
+
 	if len(pkg.GoFiles) == 0 {
 		return nil, fmt.Errorf("no Go files found")
 	}
@@ -77,16 +63,16 @@ func Load(pkgPattern, funcSpec string) (*FuncInfo, error) {
 				if fn.Recv == nil || len(fn.Recv.List) == 0 {
 					continue
 				}
-recvType := typeExprToString(fn.Recv.List[0].Type)
-			isPointer := false
-			if strings.HasPrefix(recvType, "*") {
-				isPointer = true
-			}
-			recvType = strings.TrimPrefix(recvType, "*")
-			if recvType != receiverType {
-				continue
-			}
-			info.Receiver.IsPointer = isPointer
+				recvType := typeExprToString(fn.Recv.List[0].Type)
+				isPointer := false
+				if strings.HasPrefix(recvType, "*") {
+					isPointer = true
+				}
+				recvType = strings.TrimPrefix(recvType, "*")
+				if recvType != receiverType {
+					continue
+				}
+				info.Receiver.IsPointer = isPointer
 
 				// Find factory function for this receiver type
 				info.FactoryFunc, info.FactoryParams = findFactoryFunc(pkg, recvType)

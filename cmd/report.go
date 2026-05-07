@@ -36,7 +36,7 @@ func init() {
 func runReport(cmd *cobra.Command, args []string) error {
 	pkgPattern := args[0]
 
-	result, err := analyzer.ScanPackage(pkgPattern, true)
+	result, err := analyzer.ScanPackage(pkgPattern)
 	if err != nil {
 		return fmt.Errorf("scan package: %w", err)
 	}
