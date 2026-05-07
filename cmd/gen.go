@@ -38,7 +38,7 @@ func init() {
 	genCmd.Flags().BoolVarP(&verboseFlag, "verbose", "v", false, "show parsed FuncInfo")
 	genCmd.Flags().StringVar(&configFlag, "config", "", "path to .go-testgen.yaml config file")
 	genCmd.Flags().StringVar(&styleFlag, "style", "", "test generation style: check, table, simple (default: from config or check)")
-	genCmd.Flags().StringSliceVar(&mockFromFlags, "mock-from", nil, "generate mock for interface (format: qualifier.InterfaceName, repeatable)")
+	genCmd.Flags().StringSliceVar(&mockFromFlags, "mock-from", nil, "generate mock for interface (format: qualifier.InterfaceName or .InterfaceName for same package, repeatable)")
 
 }
 
@@ -134,11 +134,18 @@ func generateMocks(pkgPath string, info *analyzer.FuncInfo, outputFlag string) e
 	}
 
 	for _, mockSpec := range mockFromFlags {
-		parts := strings.SplitN(mockSpec, ".", 2)
-		if len(parts) != 2 {
-			return fmt.Errorf("--mock-from %q: expected format qualifier.InterfaceName", mockSpec)
+		var qualifier, ifaceName string
+
+		if strings.HasPrefix(mockSpec, ".") && len(mockSpec) > 1 {
+			qualifier = ""
+			ifaceName = mockSpec[1:]
+		} else if strings.Contains(mockSpec, ".") {
+			parts := strings.SplitN(mockSpec, ".", 2)
+			qualifier, ifaceName = parts[0], parts[1]
+		} else {
+			qualifier = ""
+			ifaceName = mockSpec
 		}
-		qualifier, ifaceName := parts[0], parts[1]
 
 		iface, err := analyzer.LoadInterface(pkgPath, qualifier, ifaceName, info.ImportAliases, info.ImportPath)
 		if err != nil {

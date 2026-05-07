@@ -46,16 +46,24 @@ go-testgen gen ./internal/core/services/user Service.CreateUser \
 go-testgen gen ./internal/core/services/user Service.CreateUser \
   --mock-from userDomain.UserRepository \
   --mock-from cache.Cache
+
+# Same-package interface (bare name)
+go-testgen gen ./internal/transport/i2c I2CTransport.Read \
+  --mock-from mockI2C
+
+# Same-package interface (dot prefix)
+go-testgen gen ./internal/transport/i2c I2CTransport.Read \
+  --mock-from .I2CTransport
 ```
 
 **Flags:**
 
 | Flag | Default | Description |
-|------|---------|-------------|
+| - | - | - |
 | `-o`, `--output` | auto | Output file. Omit to auto-detect (`<source>_test.go`). Use `-` for stdout. |
 | `-v`, `--verbose` | false | Print parsed `FuncInfo` JSON to stderr before generating |
 | `--style` | — | Path to `.go-testgen.yaml` config file |
-| `--mock-from` | — | Generate a testify mock for `qualifier.InterfaceName` (repeatable) |
+| `--mock-from` | — | Generate a testify mock for an interface (repeatable) — accepts `qualifier.InterfaceName`, `.InterfaceName`, or bare `InterfaceName` |
 
 **Smart merge:** if the target `_test.go` already exists but doesn't contain the test function, go-testgen appends the new test and injects any missing imports. It never overwrites an existing test function without prompting.
 
@@ -74,6 +82,7 @@ go-testgen report <pkg-pattern> [--format text|table|json]
 ```
 
 Scans all exported functions and methods in a package and shows:
+
 - Whether a test function exists
 - Interface dependencies inferred from struct fields
 - Mock file existence
@@ -81,7 +90,7 @@ Scans all exported functions and methods in a package and shows:
 
 **Example output (text format):**
 
-```
+```shell
 Package: github.com/padiazg/user-manager/internal/core/services/user
 Source:  /path/to/internal/core/services/user
 
@@ -106,7 +115,7 @@ Source:  /path/to/internal/core/services/user
 **Formats:**
 
 | Flag | Description |
-|------|-------------|
+| - | - |
 | `--format text` | Default. Human-readable with ✓/✗ |
 | `--format table` | Tabular layout (uses go-pretty) |
 | `--format json` | Machine-readable JSON |
@@ -162,6 +171,7 @@ func TestService_CreateUser(t *testing.T) {
 ```
 
 Key properties:
+
 - Check functions are closures — each assertion is a separate `checkXxxFn`, composable via `checkXxx(fn1, fn2, ...)`.
 - The `before` hook sets up mock expectations per test case.
 - The check function signature mirrors the function's full return list (including `error`).
@@ -169,7 +179,7 @@ Key properties:
 
 ## Generated mock style
 
-`--mock-from qualifier.InterfaceName` generates a complete testify mock for the named interface, written to `mock_<interfacename>_test.go` in the same directory as the test file.
+`--mock-from` accepts three formats: `qualifier.InterfaceName` (external import), `.InterfaceName` (same package with dot), or bare `InterfaceName` (same package). Generates a complete testify mock written to `mock_<interfacename>_test.go` in the same directory as the test file.
 
 ```go
 type mockUserRepository struct {

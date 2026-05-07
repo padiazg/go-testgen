@@ -18,18 +18,29 @@ import (
 func LoadInterface(pkgPattern, qualifier, ifaceName string, consumingAliases map[string]string, consumingPkgPath string) (*InterfaceInfo, error) {
 	// Resolve qualifier → import path by reversing the alias map.
 	importPath := ""
-	for path, alias := range consumingAliases {
-		if alias == qualifier {
-			importPath = path
-			break
+	if qualifier == "" {
+		// Bare name: try same package first (check if ifaceName is an interface in consuming scope)
+		importPath = trySamePackage(pkgPattern, ifaceName)
+	}
+
+	if importPath == "" && qualifier != "" {
+		// External: resolve qualifier → import path
+		for path, alias := range consumingAliases {
+			if alias == qualifier {
+				importPath = path
+				break
+			}
+		}
+		if importPath == "" {
+			importPath = findImportPathByAlias(pkgPattern, qualifier)
+		}
+		if importPath == "" {
+			return nil, fmt.Errorf("qualifier %q not found in imports of %s", qualifier, pkgPattern)
 		}
 	}
+
 	if importPath == "" {
-		// Fallback: re-load the consuming package and scan import specs.
-		importPath = findImportPathByAlias(pkgPattern, qualifier)
-	}
-	if importPath == "" {
-		return nil, fmt.Errorf("qualifier %q not found in imports of %s", qualifier, pkgPattern)
+		return nil, fmt.Errorf("%q not found as interface in package %s", ifaceName, consumingPkgPath)
 	}
 
 	// Load the target package that declares the interface.
@@ -80,6 +91,26 @@ func LoadInterface(pkgPattern, qualifier, ifaceName string, consumingAliases map
 	}
 
 	return info, nil
+}
+
+// trySamePackage checks if ifaceName is an interface exported by the consuming package.
+func trySamePackage(pkgPattern, ifaceName string) string {
+	cfg := &packages.Config{
+		Mode: packages.NeedTypes | packages.NeedTypesInfo | packages.NeedName |
+			packages.NeedImports | packages.NeedDeps | packages.NeedSyntax,
+	}
+	pkgs, err := packages.Load(cfg, pkgPattern)
+	if err != nil || len(pkgs) == 0 {
+		return ""
+	}
+	obj := pkgs[0].Types.Scope().Lookup(ifaceName)
+	if obj == nil {
+		return ""
+	}
+	if _, ok := obj.Type().Underlying().(*types.Interface); !ok {
+		return ""
+	}
+	return pkgs[0].Types.Path()
 }
 
 // findImportPathByAlias re-loads a package to scan import specs for an alias.

@@ -5,21 +5,28 @@ All notable changes to go-testgen will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.1.2 - 2026-05-06
+## v0.1.2 - 2026-05-07
+
+### Added
+
+- `--mock-from` accepts bare interface names (e.g. `--mock-from mockI2C`) and `.InterfaceName` (e.g. `.I2CTransport`) for interfaces in the same package
+- `SourceFile` field to scan results (via internal/analyzer)
 
 ### Changed
 
 - Renamed `--test-style` flag to `--style`
-- Fixed typo in license
-- Fixed error when no `.go` file is found at project root but `go.mo` and `go.sum` are present.
+- Moved package loading logic to `getPackages()` helper in `internal/analyzer/helpers.go`
+- `ScanPackage` now handles module root (`.`) with no `.go` files by retrying with `./...`
+- `ScanPackage` now merges results from multiple packages (e.g. `./...`)
+- `MergeTestFile` now accepts and injects imports into merged test files
+- `writeOutput` / `writeToFile` now pass import map for smart import injection
 
 ### Fixed
 
+- Fixed issue with ignored `_` (blank identifier) params
+- Fixed missing imports when merging tests
+- Fixed error when no `.go` file is found at project root but `go.mod` and `go.sum` are present
 - Report command now shows source file location for each function
-
-### Added
-
-- `SourceFile` field to scan results (via internal/analyzer)
 
 ## v0.1.1 - 2026-04-23
 
