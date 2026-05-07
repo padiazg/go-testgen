@@ -114,7 +114,7 @@ func runGen(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("generate mocks: %w", err)
 	}
 
-	return writeOutput(formatted, outputFlag, info.SourceFile, testFuncName, isMerge)
+	return writeOutput(formatted, outputFlag, info.SourceFile, testFuncName, isMerge, info)
 }
 
 func generateMocks(pkgPath string, info *analyzer.FuncInfo, outputFlag string) error {
@@ -180,20 +180,25 @@ func generateMocks(pkgPath string, info *analyzer.FuncInfo, outputFlag string) e
 	return nil
 }
 
-func writeOutput(content []byte, outputFlag, sourceFile, testFuncName string, isMerge bool) error {
+func writeOutput(content []byte, outputFlag, sourceFile, testFuncName string, isMerge bool, info *analyzer.FuncInfo) error {
+	var imports map[string]string
+	if isMerge && info != nil {
+		imports = generator.CollectImports(info)
+	}
+
 	switch outputFlag {
 	case "-":
 		os.Stdout.Write(content)
 		return nil
 	case "":
 		targetPath := analyzer.DeriveTestPath(sourceFile)
-		return writeToFile(targetPath, content, testFuncName, isMerge)
+		return writeToFile(targetPath, content, testFuncName, isMerge, imports)
 	default:
-		return writeToFile(outputFlag, content, testFuncName, false)
+		return writeToFile(outputFlag, content, testFuncName, false, imports)
 	}
 }
 
-func writeToFile(path string, content []byte, testFuncName string, isMerge bool) error {
+func writeToFile(path string, content []byte, testFuncName string, isMerge bool, imports map[string]string) error {
 	if _, err := os.Stat(path); err == nil {
 		exists, err := analyzer.TestExistsInFile(path, testFuncName)
 		if err != nil {
@@ -203,11 +208,11 @@ func writeToFile(path string, content []byte, testFuncName string, isMerge bool)
 			return analyzer.PromptOverwrite(path, testFuncName, content)
 		}
 		if isMerge {
-			return analyzer.MergeTestFile(path, content)
+			return analyzer.MergeTestFile(path, content, imports)
 		}
 	}
 	if isMerge {
-		return analyzer.MergeTestFile(path, content)
+		return analyzer.MergeTestFile(path, content, imports)
 	}
 	return os.WriteFile(path, content, 0644)
 }

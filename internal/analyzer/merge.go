@@ -81,7 +81,7 @@ func InjectImports(filePath string, imports map[string]string) error {
 	return os.WriteFile(filePath, buf.Bytes(), 0644)
 }
 
-func MergeTestFile(path string, newCode []byte) error {
+func MergeTestFile(path string, newCode []byte, imports map[string]string) error {
 	existing, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read existing: %w", err)
@@ -90,7 +90,17 @@ func MergeTestFile(path string, newCode []byte) error {
 	existing = append(existing, '\n')
 	existing = append(existing, newCode...)
 
-	return os.WriteFile(path, existing, 0644)
+	if err := os.WriteFile(path, existing, 0644); err != nil {
+		return fmt.Errorf("write merged: %w", err)
+	}
+
+	if len(imports) == 0 {
+		return nil
+	}
+
+	imports["testing"] = ""
+
+	return InjectImports(path, imports)
 }
 
 func PromptOverwrite(path string, testFuncName string, content []byte) error {
