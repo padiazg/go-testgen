@@ -182,7 +182,11 @@ func buildArgs(info *analyzer.FuncInfo) []string {
 		if p.IsContext {
 			continue
 		}
-		args = append(args, "tt."+p.Name)
+		name := "tt." + p.Name
+		if name == "tt._" {
+			name = placeholderValue(p.TypeName)
+		}
+		args = append(args, name)
 	}
 	return args
 }
