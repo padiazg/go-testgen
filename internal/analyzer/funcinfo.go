@@ -29,6 +29,8 @@ type ParamInfo struct {
 	Name        string
 	Package     string
 	TypeName    string
+	ChanDir     int // 0=bidi, 1=send-only (ast.SEND), 2=recv-only (ast.RECV)
+	IsChannel   bool
 	IsContext   bool
 	IsInterface bool
 	IsPointer   bool
@@ -38,6 +40,8 @@ type ResultInfo struct {
 	ImportPath string
 	Package    string // local alias/qualifier (e.g., "userDomain")
 	TypeName   string
+	ChanDir    int // 0=bidi, 1=send-only (ast.SEND), 2=recv-only (ast.RECV)
+	IsChannel  bool
 	IsError    bool
 	IsPointer  bool
 }

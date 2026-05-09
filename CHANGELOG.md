@@ -5,6 +5,27 @@ All notable changes to go-testgen will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.1.3 - 2026-05-08
+
+### Added
+
+- Channel type detection and support in analyzer — `IsChannel` and `ChanDir` fields on `ParamInfo` and `ResultInfo`
+- `HasChannelParam` / `HasChannelResult` flags on `FuncSummary` and `ScanResult`
+- Full channel direction support: `chan`, `chan<-`, `<-chan` in `typeToString`, `extractTypePrefix`, and `resolveTypeExpr`
+- `qualifiedTypeName` now handles channel prefixes for correct type qualification
+- `placeholderValue` returns `nil` for channel types
+
+### Changed
+
+- Go toolchain `go.mod` updated from `go 1.26.1` to `go 1.26.2`
+
+### Fixed
+
+- Fixed issue with ignored `_` (blank identifier) params
+- Fixed missing imports when merging tests
+- Fixed error when no `.go` file is found at project root but `go.mod` and `go.sum` are present
+- Report command now shows source file location for each function
+
 ## v0.1.2 - 2026-05-07
 
 ### Added

@@ -219,6 +219,23 @@ generate_mocks: true        # generate mock files when --mock-from is used
 generate_checks: true       # generate checkXxx helper functions
 ```
 
+## Channel Type Support
+
+go-testgen detects and correctly handles all channel types — `chan`, `chan<-`, `<-chan` — in both parameters and results.
+
+```bash
+# Function returning a receive-only channel
+go-testgen gen ./internal/pkg ChannelRecvReturn
+
+# Function accepting a send-only channel parameter
+go-testgen gen ./internal/pkg ChannelSendParam
+
+# Bidirectional channel
+go-testgen gen ./internal/pkg ChannelBidi
+```
+
+The analyzer extracts channel direction (`ChanDir`) and generates correct placeholder values (`nil`) for channel types.
+
 ## Typical workflow
 
 ```bash

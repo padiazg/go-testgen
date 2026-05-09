@@ -53,16 +53,28 @@ func qualifiedTypeName(typeName, pkgQualifier string) string {
 	if pkgQualifier == "" {
 		return typeName
 	}
-	if strings.HasPrefix(typeName, "*") {
+
+	// Channel prefixes (order matters — longer prefixes first)
+	for _, prefix := range []string{
+		"<-chan []*", "<-chan []", "<-chan *", "<-chan ",
+		"chan<- []*", "chan<- []", "chan<- *", "chan<- ",
+		"chan []*", "chan []", "chan *", "chan ",
+	} {
+		if strings.HasPrefix(typeName, prefix) {
+			return prefix + pkgQualifier + "." + typeName[len(prefix):]
+		}
+	}
+
+	switch {
+	case strings.HasPrefix(typeName, "*"):
 		return "*" + pkgQualifier + "." + typeName[1:]
-	}
-	if strings.HasPrefix(typeName, "[]*") {
+	case strings.HasPrefix(typeName, "[]*"):
 		return "[]*" + pkgQualifier + "." + typeName[3:]
-	}
-	if strings.HasPrefix(typeName, "[]") {
+	case strings.HasPrefix(typeName, "[]"):
 		return "[]" + pkgQualifier + "." + typeName[2:]
+	default:
+		return pkgQualifier + "." + typeName
 	}
-	return pkgQualifier + "." + typeName
 }
 
 // buildReturnVars builds the list of variable names for capturing function return values.
@@ -218,6 +230,10 @@ func placeholderValue(typeName string) string {
 	case strings.HasPrefix(typeName, "bool"):
 		return "false"
 	case strings.HasPrefix(typeName, "[]"):
+		return "nil"
+	case strings.HasPrefix(typeName, "chan "),
+		strings.HasPrefix(typeName, "<-chan "),
+		strings.HasPrefix(typeName, "chan<- "):
 		return "nil"
 	case typeName == "error":
 		return "nil"

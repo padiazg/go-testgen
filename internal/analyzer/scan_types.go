@@ -20,6 +20,8 @@ type FuncSummary struct {
 	InterfaceDeps    []InterfaceDep `json:"interfaceDeps"`
 	NumParams        int            `json:"numParams"`
 	NumResults       int            `json:"numResults"`
+	HasChannelParam  bool           `json:"hasChannelParam"`
+	HasChannelResult bool           `json:"hasChannelResult"`
 	HasContext       bool           `json:"hasContext"`
 	HasError         bool           `json:"hasError"`
 	HasPointerResult bool           `json:"hasPointerResult"`

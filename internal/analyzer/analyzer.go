@@ -162,6 +162,11 @@ func paramInfoFromField(field *ast.Field) ParamInfo {
 			pi.IsPointer = true
 		}
 
+		if ch, ok := field.Type.(*ast.ChanType); ok {
+			pi.IsChannel = true
+			pi.ChanDir = int(ch.Dir)
+		}
+
 		if ident, ok := field.Type.(*ast.Ident); ok {
 			if ident.Name == "context" {
 				pi.IsContext = true
@@ -191,8 +196,13 @@ func resolveParamInfo(field *ast.Field, pkg *packages.Package) ParamInfo {
 
 	prefix := extractTypePrefix(field.Type)
 
-	// Unwrap slice/pointer to reach the named type.
+	// Unwrap channel/slice/pointer to reach the named type.
 	inner := t.Type
+	if ch, ok := inner.(*types.Chan); ok {
+		pi.IsChannel = true
+		pi.ChanDir = int(ch.Dir())
+		inner = ch.Elem()
+	}
 	if sl, ok := inner.(*types.Slice); ok {
 		inner = sl.Elem()
 	}
@@ -214,11 +224,9 @@ func resolveParamInfo(field *ast.Field, pkg *packages.Package) ParamInfo {
 	typeStr := t.Type.String()
 	if typeStr != "" && typeStr != "invalid" && typeStr != "nil" {
 		cleanStr := strings.TrimLeft(typeStr, "[]*")
-		impPath, typeName := splitQualifiedType(cleanStr)
+		impPath, _ := splitQualifiedType(cleanStr)
 		pi.ImportPath = impPath
-		if typeName != "" {
-			pi.TypeName = prefix + typeName
-		}
+		pi.TypeName = typeToString(field.Type)
 		pi.Package = extractQualifier(field.Type)
 	}
 
@@ -239,8 +247,13 @@ func resolveResultInfo(field *ast.Field, pkg *packages.Package) ResultInfo {
 
 	prefix := extractTypePrefix(field.Type)
 
-	// Unwrap slice/pointer to reach the named type.
+	// Unwrap channel/slice/pointer to reach the named type.
 	inner := t.Type
+	if ch, ok := inner.(*types.Chan); ok {
+		ri.IsChannel = true
+		ri.ChanDir = int(ch.Dir())
+		inner = ch.Elem()
+	}
 	if sl, ok := inner.(*types.Slice); ok {
 		inner = sl.Elem()
 	}
@@ -262,11 +275,9 @@ func resolveResultInfo(field *ast.Field, pkg *packages.Package) ResultInfo {
 	typeStr := t.Type.String()
 	if typeStr != "" && typeStr != "invalid" && typeStr != "nil" {
 		cleanStr := strings.TrimLeft(typeStr, "[]*")
-		impPath, typeName := splitQualifiedType(cleanStr)
+		impPath, _ := splitQualifiedType(cleanStr)
 		ri.ImportPath = impPath
-		if typeName != "" {
-			ri.TypeName = prefix + typeName
-		}
+		ri.TypeName = typeToString(field.Type)
 		ri.Package = extractQualifier(field.Type)
 	}
 
@@ -283,6 +294,16 @@ func extractTypePrefix(expr ast.Expr) string {
 		return "[]"
 	case *ast.StarExpr:
 		return "*"
+	case *ast.ChanType:
+		inner := extractTypePrefix(e.Value)
+		switch e.Dir {
+		case ast.SEND:
+			return "chan<- " + inner
+		case ast.RECV:
+			return "<-chan " + inner
+		default:
+			return "chan " + inner
+		}
 	default:
 		return ""
 	}
@@ -291,6 +312,9 @@ func extractTypePrefix(expr ast.Expr) string {
 // extractQualifier returns the package qualifier used in the source AST for a type expr.
 // e.g., for *userDomain.User it returns "userDomain"; for *User it returns "".
 func extractQualifier(expr ast.Expr) string {
+	if ch, ok := expr.(*ast.ChanType); ok {
+		expr = ch.Value
+	}
 	if star, ok := expr.(*ast.StarExpr); ok {
 		expr = star.X
 	}
@@ -362,7 +386,14 @@ func typeToString(expr ast.Expr) string {
 	case *ast.MapType:
 		return "map[" + typeToString(t.Key) + "]" + typeToString(t.Value)
 	case *ast.ChanType:
-		return "chan " + typeToString(t.Value)
+		switch t.Dir {
+		case ast.SEND:
+			return "chan<- " + typeToString(t.Value)
+		case ast.RECV:
+			return "<-chan " + typeToString(t.Value)
+		default:
+			return "chan " + typeToString(t.Value)
+		}
 	case *ast.FuncType:
 		return "func()"
 	case *ast.InterfaceType:
@@ -388,6 +419,11 @@ func resultInfoFromField(field *ast.Field) ResultInfo {
 	}
 
 	_, ri.IsPointer = field.Type.(*ast.StarExpr)
+
+	if ch, ok := field.Type.(*ast.ChanType); ok {
+		ri.IsChannel = true
+		ri.ChanDir = int(ch.Dir)
+	}
 
 	return ri
 }

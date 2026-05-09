@@ -61,10 +61,12 @@ func ScanPackage(pkgPattern string) (*ScanResult, error) {
 type signatureInfo struct {
 	NumParams        int
 	NumResults       int
-	HasContext       bool
+	HasContext        bool
 	HasError         bool
 	HasPointerResult bool
 	HasSliceResult   bool
+	HasChannelParam  bool
+	HasChannelResult bool
 	ReturnsInterface bool
 }
 
@@ -122,6 +124,11 @@ func inspectSignature(fn *ast.FuncDecl, pkg *packages.Package) signatureInfo {
 				info.HasContext = true
 				continue
 			}
+			if strings.HasPrefix(typeStr, "chan ") ||
+				strings.HasPrefix(typeStr, "<-chan ") ||
+				strings.HasPrefix(typeStr, "chan<- ") {
+				info.HasChannelParam = true
+			}
 			info.NumParams += count
 		}
 	}
@@ -139,6 +146,10 @@ func inspectSignature(fn *ast.FuncDecl, pkg *packages.Package) signatureInfo {
 				info.HasPointerResult = true
 			} else if strings.HasPrefix(typeStr, "[]") {
 				info.HasSliceResult = true
+			} else if strings.HasPrefix(typeStr, "chan ") ||
+				strings.HasPrefix(typeStr, "<-chan ") ||
+				strings.HasPrefix(typeStr, "chan<- ") {
+				info.HasChannelResult = true
 			}
 			// Check if return type is an interface
 			if pkg != nil && pkg.TypesInfo != nil {
@@ -213,6 +224,8 @@ func buildFuncSummary(
 		HasError:         sig.HasError,
 		HasPointerResult: sig.HasPointerResult,
 		HasSliceResult:   sig.HasSliceResult,
+		HasChannelParam:  sig.HasChannelParam,
+		HasChannelResult: sig.HasChannelResult,
 		ReturnsInterface: sig.ReturnsInterface,
 	}
 

@@ -49,7 +49,7 @@ go-testgen gen ./pkg/utils Sanitize --style simple
 ## Flags
 
 | Flag | Default | Description |
-|------|---------|-------------|
+| - | - | - |
 | `-o`, `--output` | auto | Output file. Omit to auto-detect (`<source>_test.go`). Use `-` for stdout (preview). |
 | `-v`, `--verbose` | false | Print parsed `FuncInfo` JSON to stderr before generating. |
 | `--style` | `check` | Test style: `check`, `table`, or `simple`. Overrides `test_style` in config. |
@@ -80,9 +80,15 @@ This produces idiomatic initialization instead of `&Type{}` or `Type{}`. Replace
 ## Test Styles
 
 | Style | Description | When to use |
-|-------|-------------|-------------|
+| - | - | - |
 | `check` | Table-driven + closure check functions (default) | Methods, constructors, anything with multiple assertions or mock dependencies |
 | `table` | Table-driven + `want` value fields | Simple functions where `DeepEqual` is sufficient |
 | `simple` | Standalone test function, no table | Pure utilities, single-path functions |
 
 See [Test Styles](../test-styles/index.md) for full details.
+
+## Channel Types
+
+go-testgen detects and handles `chan`, `chan<-`, and `<-chan` types in parameters and results. Channel placeholders use `nil` as the zero value.
+
+See [Channel Type Support](../concepts/channels.md) for details.

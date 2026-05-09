@@ -37,6 +37,12 @@ The central idea. Instead of `want` fields, each assertion is a named closure (`
 
 → [Compare Test Styles](test-styles/index.md)
 
+### Channel Types
+
+go-testgen correctly handles `chan`, `chan<-`, and `<-chan` in parameters and results — detecting direction, qualifying types, and using `nil` placeholders.
+
+→ [Channel Type Support](concepts/channels.md)
+
 ### Smart Merge
 
 If the target `_test.go` already exists, go-testgen appends the new test and injects missing imports. It never overwrites an existing test function.

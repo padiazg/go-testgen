@@ -166,6 +166,17 @@ func resolveTypeExpr(t types.Type, consumingAliases map[string]string, consuming
 		inner := resolveTypeExpr(tt.Elem(), consumingAliases, consumingPkgPath, p)
 		return "[]" + inner
 
+	case *types.Chan:
+		elemStr := resolveTypeExpr(tt.Elem(), consumingAliases, consumingPkgPath, p)
+		switch tt.Dir() {
+		case types.SendOnly:
+			return "chan<- " + elemStr
+		case types.RecvOnly:
+			return "<-chan " + elemStr
+		default:
+			return "chan " + elemStr
+		}
+
 	case *types.Named:
 		obj := tt.Obj()
 		typeName := obj.Name()
