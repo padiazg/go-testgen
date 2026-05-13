@@ -70,12 +70,15 @@ nav:
     - getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
   - Concepts:
+    - Overview: concepts/index.md
     - Check Functions: concepts/checks.md
     - Mocks: concepts/mocks.md
+    - Channel Types: concepts/channels.md
   - Commands:
     - gen: commands/gen.md
     - inspect: commands/inspect.md
     - report: commands/report.md
+    - version: commands/version.md
   - Test Styles:
     - Overview: test-styles/index.md
     - check (default): test-styles/check.md

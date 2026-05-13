@@ -4,14 +4,32 @@ go-testgen generates testify mocks for Go interfaces. This page explains when to
 
 ## When Mocks Are Generated
 
-Pass `--mock-from qualifier.InterfaceName` to `gen`:
+Pass `--mock-from` to `gen`. Three formats are supported:
+
+### Cross-package interface
 
 ```bash
 go-testgen gen ./internal/core/services/user Service.CreateUser \
   --mock-from userDomain.UserRepository
 ```
 
-go-testgen resolves the interface in the named package and generates a complete testify mock written to `mock_<interfacename>_test.go` in the same directory as the test file.
+### Same-package interface (dot prefix)
+
+```bash
+go-testgen gen ./internal/core/services/user Service.CreateUser \
+  --mock-from .I2CTransport
+```
+
+The `.` prefix tells go-testgen to look for the interface in the package being tested.
+
+### Bare interface name
+
+```bash
+go-testgen gen ./internal/core/services/user Service.CreateUser \
+  --mock-from mockI2C
+```
+
+When no qualifier or dot is present, go-testgen searches for the interface in the current package.
 
 The flag is repeatable — pass multiple `--mock-from` flags for functions with multiple interface dependencies:
 

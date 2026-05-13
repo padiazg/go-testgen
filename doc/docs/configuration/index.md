@@ -4,16 +4,16 @@ go-testgen is configured via a YAML file. Place `.go-testgen.yaml` in your proje
 
 ## Config File Search Order
 
-1. Explicit path via `--style` flag
-2. `.go-testgen.yaml` in the current working directory
-3. `.go-testgen.yaml` in `$HOME`
+1. Explicit path via `--config` flag
+2. `.go-testgen.yaml` (YAML, YML, JSON) in the current working directory
+3. `.go-testgen.yaml` (YAML, YML, JSON) in `$HOME`
 4. Hardcoded defaults
 
 ## Full Reference
 
 ```yaml
 # Variable names in generated tests
-receiver_var_name: "s"       # Variable name for the receiver. Default: first letter of the type, lowercased.
+receiver_var_name: "s"       # Variable name for the receiver. Default: "s" (hardcoded). Note: this config key is loaded but not yet applied by the generator.
 result_var_name: "r"         # Variable name for non-error return values. Default: "r".
 error_var_name: "err"        # Variable name for the error return. Default: "err".
 
@@ -27,9 +27,9 @@ number_of_todos: 2            # How many TODO rows to add. Default: 2.
 
 # Check type naming
 check_type_suffix: "CheckFn"  # Suffix for the generated check type name.
-                              # e.g. "CheckFn" → checkServiceCreateUserCheckFn
-                              # Default: "CheckFn".
-check_type_prefix: ""         # Prefix for the check type name. Default: "" (inferred from type).
+                               # e.g. "CheckFn" → checkServiceCreateUserCheckFn
+                               # Default: "CheckFn".
+check_type_prefix: ""         # Prefix for the check type name (plain functions only). Default: "" (empty).
 mock_prefix: "mock"           # Prefix for generated mock type names. Default: "mock".
 
 # Generation flags

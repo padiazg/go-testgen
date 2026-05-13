@@ -52,9 +52,9 @@ go-testgen gen ./pkg/utils Sanitize --style simple
 | - | - | - |
 | `-o`, `--output` | auto | Output file. Omit to auto-detect (`<source>_test.go`). Use `-` for stdout (preview). |
 | `-v`, `--verbose` | false | Print parsed `FuncInfo` JSON to stderr before generating. |
-| `--style` | `check` | Test style: `check`, `table`, or `simple`. Overrides `test_style` in config. |
+| `--style` | from config / `check` | Test style: `check`, `table`, or `simple`. Overrides `test_style` in config. |
 | `--config` | auto | Path to `.go-testgen.yaml` config file. |
-| `--mock-from` | — | Generate a testify mock for `qualifier.InterfaceName` (repeatable). |
+| `--mock-from` | — | Generate a testify mock (repeatable). Format: `qualifier.InterfaceName` for cross-package, `.InterfaceName` for same-package, or bare `InterfaceName` (same package). |
 
 ## Output Files
 
@@ -65,6 +65,8 @@ Mock files are written to `mock_<interfacename>_test.go` in the same directory.
 ## Smart Merge
 
 If the target `_test.go` already exists but does not contain the test function, go-testgen **appends** the new test and injects any missing imports. It never overwrites an existing test function.
+
+If the target `_test.go` exists **and** the test function already exists, go-testgen prompts for overwrite (Spanish: [S]obrescribir / [C]ancelar).
 
 ## Factory Function Instantiation
 
