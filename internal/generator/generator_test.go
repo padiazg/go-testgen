@@ -101,3 +101,40 @@ func TestCheckGenerator_NilFuncInfo_ReturnsError(t *testing.T) {
 	_, err := gen.Generate(GenerateRequest{Info: nil})
 	require.Error(t, err)
 }
+
+func TestQualifiedTypeName_Array(t *testing.T) {
+	tests := []struct {
+		name        string
+		typeName    string
+		pkgQualifier string
+		want        string
+	}{
+		{name: "no qualifier", typeName: "[100]types.PriceBar", pkgQualifier: "", want: "[100]types.PriceBar"},
+		{name: "with qualifier", typeName: "[100]types.PriceBar", pkgQualifier: "domain", want: "[100]domain.PriceBar"},
+		{name: "pointer element", typeName: "[5]*user.User", pkgQualifier: "domain", want: "[5]domain.User"},
+		{name: "element no dot", typeName: "[5]int", pkgQualifier: "pkg", want: "[5]pkg.int"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := qualifiedTypeName(tt.typeName, tt.pkgQualifier)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestPlaceholderValue_Array(t *testing.T) {
+	tests := []struct {
+		name     string
+		typeName string
+		want     string
+	}{
+		{name: "fixed array", typeName: "[100]types.PriceBar", want: "[100]types.PriceBar{}"},
+		{name: "small array", typeName: "[5]int", want: "[5]int{}"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := placeholderValue(tt.typeName)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

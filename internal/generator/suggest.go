@@ -24,9 +24,9 @@ func SuggestStyle(summary *analyzer.FuncSummary) TestStyle {
 		return StyleSimple
 	}
 
-	// Pointer or slice result: comparing the whole value is impractical,
+	// Pointer or slice/array result: comparing the whole value is impractical,
 	// check-functions let you assert individual fields/elements.
-	if summary.HasPointerResult || summary.HasSliceResult {
+	if summary.HasPointerResult || summary.HasSliceResult || summary.HasArrayResult {
 		return StyleCheck
 	}
 

@@ -284,10 +284,13 @@ func resolveResultInfo(field *ast.Field, pkg *packages.Package) ResultInfo {
 	return ri
 }
 
-// extractTypePrefix returns the leading type prefix ("[]*", "[]", "*") of an AST expression.
+// extractTypePrefix returns the leading type prefix ("[]*", "[]", "[N]", "*") of an AST expression.
 func extractTypePrefix(expr ast.Expr) string {
 	switch e := expr.(type) {
 	case *ast.ArrayType:
+		if e.Len != nil {
+			return "[" + typeToString(e.Len) + "]"
+		}
 		if _, ok := e.Elt.(*ast.StarExpr); ok {
 			return "[]*"
 		}
@@ -320,9 +323,9 @@ func extractQualifier(expr ast.Expr) string {
 	}
 	if arr, ok := expr.(*ast.ArrayType); ok {
 		expr = arr.Elt
-		if star, ok := expr.(*ast.StarExpr); ok {
-			expr = star.X
-		}
+	}
+	if star, ok := expr.(*ast.StarExpr); ok {
+		expr = star.X
 	}
 	if sel, ok := expr.(*ast.SelectorExpr); ok {
 		if ident, ok := sel.X.(*ast.Ident); ok {
@@ -382,6 +385,9 @@ func typeToString(expr ast.Expr) string {
 		}
 		return t.Sel.Name
 	case *ast.ArrayType:
+		if t.Len != nil {
+			return "[" + typeToString(t.Len) + "]" + typeToString(t.Elt)
+		}
 		return "[]" + typeToString(t.Elt)
 	case *ast.MapType:
 		return "map[" + typeToString(t.Key) + "]" + typeToString(t.Value)

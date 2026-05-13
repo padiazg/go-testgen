@@ -26,6 +26,7 @@ type FuncSummary struct {
 	HasError         bool           `json:"hasError"`
 	HasPointerResult bool           `json:"hasPointerResult"`
 	HasSliceResult   bool           `json:"hasSliceResult"`
+	HasArrayResult   bool           `json:"hasArrayResult"`
 	IsExported       bool           `json:"isExported"`
 	IsMethod         bool           `json:"isMethod"`
 	ReturnsInterface bool           `json:"returnsInterface"`

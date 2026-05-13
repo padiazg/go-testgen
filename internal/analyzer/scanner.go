@@ -65,6 +65,7 @@ type signatureInfo struct {
 	HasError         bool
 	HasPointerResult bool
 	HasSliceResult   bool
+	HasArrayResult   bool
 	HasChannelParam  bool
 	HasChannelResult bool
 	ReturnsInterface bool
@@ -146,6 +147,8 @@ func inspectSignature(fn *ast.FuncDecl, pkg *packages.Package) signatureInfo {
 				info.HasPointerResult = true
 			} else if strings.HasPrefix(typeStr, "[]") {
 				info.HasSliceResult = true
+			} else if strings.HasPrefix(typeStr, "[") {
+				info.HasArrayResult = true
 			} else if strings.HasPrefix(typeStr, "chan ") ||
 				strings.HasPrefix(typeStr, "<-chan ") ||
 				strings.HasPrefix(typeStr, "chan<- ") {
@@ -224,6 +227,7 @@ func buildFuncSummary(
 		HasError:         sig.HasError,
 		HasPointerResult: sig.HasPointerResult,
 		HasSliceResult:   sig.HasSliceResult,
+		HasArrayResult:   sig.HasArrayResult,
 		HasChannelParam:  sig.HasChannelParam,
 		HasChannelResult: sig.HasChannelResult,
 		ReturnsInterface: sig.ReturnsInterface,

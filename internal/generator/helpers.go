@@ -48,7 +48,7 @@ func CollectImports(info *analyzer.FuncInfo) map[string]string {
 }
 
 // qualifiedTypeName prepends pkgQualifier to typeName when the type is from an external package.
-// Handles pointer (*) and slice ([]) prefixes correctly.
+// Handles pointer (*), slice ([]), and array [N] prefixes correctly.
 func qualifiedTypeName(typeName, pkgQualifier string) string {
 	if pkgQualifier == "" {
 		return typeName
@@ -72,6 +72,20 @@ func qualifiedTypeName(typeName, pkgQualifier string) string {
 		return "[]*" + pkgQualifier + "." + typeName[3:]
 	case strings.HasPrefix(typeName, "[]"):
 		return "[]" + pkgQualifier + "." + typeName[2:]
+	case strings.HasPrefix(typeName, "["):
+		bracketIdx := strings.Index(typeName, "]")
+		if bracketIdx > 0 {
+			elemType := typeName[bracketIdx+1:]
+			if pkgQualifier == "" {
+				return typeName
+			}
+			dotIdx := strings.Index(elemType, ".")
+			if dotIdx > 0 {
+				return typeName[:bracketIdx+1] + pkgQualifier + "." + elemType[dotIdx+1:]
+			}
+			return typeName[:bracketIdx+1] + pkgQualifier + "." + elemType
+		}
+		return typeName
 	default:
 		return pkgQualifier + "." + typeName
 	}
@@ -229,6 +243,12 @@ func placeholderValue(typeName string) string {
 		return "0"
 	case strings.HasPrefix(typeName, "bool"):
 		return "false"
+case strings.HasPrefix(typeName, "["):
+		bracketIdx := strings.Index(typeName, "]")
+		if bracketIdx > 0 {
+			return typeName + "{}"
+		}
+		return "nil"
 	case strings.HasPrefix(typeName, "[]"):
 		return "nil"
 	case strings.HasPrefix(typeName, "chan "),

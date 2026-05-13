@@ -68,6 +68,14 @@ func TestSuggestStyle(t *testing.T) {
 			want: StyleCheck,
 		},
 		{
+			name: "array result → check",
+			summary: analyzer.FuncSummary{
+				NumResults:     1,
+				HasArrayResult: true,
+			},
+			want: StyleCheck,
+		},
+		{
 			name: "pointer result + error → check (e.g. NewClient() *Client)",
 			summary: analyzer.FuncSummary{
 				NumResults:       2,
