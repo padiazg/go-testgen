@@ -5,6 +5,23 @@ All notable changes to go-testgen will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.1.4 - 2026-05-13
+
+### Added
+
+- Fixed-size array parameter detection — `[N]T` params now correctly identified in analyzer
+- `HasArrayResult` flag on `FuncSummary` and `ScanResult` for array return type detection
+- `SuggestStyle` now recommends `check` style for functions returning arrays (like slices)
+
+### Fixed
+
+- `typeToString` now preserves array length (e.g. `[100]T` instead of `[]T`) for both parameters and results
+- `extractTypePrefix` handles `[N]` prefix, enabling correct identification of array params/results
+- `qualifiedTypeName` correctly drills into array element types for package qualification
+- `placeholderValue` generates `[N]T{}` zero-value literals for arrays instead of invalid `nil`
+- `inspectSignature` detects `[N]` arrays when checking `HasSliceResult` fallback
+- Added unit tests for `qualifiedTypeName` and `placeholderValue` with array types
+
 ## v0.1.3 - 2026-05-08
 
 ### Added
