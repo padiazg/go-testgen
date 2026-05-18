@@ -61,7 +61,7 @@ func ScanPackage(pkgPattern string) (*ScanResult, error) {
 type signatureInfo struct {
 	NumParams        int
 	NumResults       int
-	HasContext        bool
+	HasContext       bool
 	HasError         bool
 	HasPointerResult bool
 	HasSliceResult   bool
@@ -111,58 +111,71 @@ func scanSinglePackage(pkg *packages.Package) (*ScanResult, error) {
 	return result, nil
 }
 
+func scannerInfoFromParams(info *signatureInfo, list []*ast.Field) {
+	for _, field := range list {
+		count := len(field.Names)
+		if count == 0 {
+			count = 1
+		}
+		info.NumParams += count
+
+		typeStr := typeToString(field.Type)
+		if typeStr == "context.Context" {
+			info.HasContext = true
+			continue
+		}
+
+		if strings.HasPrefix(typeStr, "chan ") ||
+			strings.HasPrefix(typeStr, "<-chan ") ||
+			strings.HasPrefix(typeStr, "chan<- ") {
+			info.HasChannelParam = true
+		}
+	}
+}
+
+func scannerInfoFromResults(info *signatureInfo, pkg *packages.Package, list []*ast.Field) {
+	for _, field := range list {
+		typeStr := typeToString(field.Type)
+		count := len(field.Names)
+		if count == 0 {
+			count = 1
+		}
+		info.NumResults += count
+
+		switch {
+		case typeStr == "error":
+			info.HasError = true
+		case strings.HasPrefix(typeStr, "*"):
+			info.HasPointerResult = true
+		case strings.HasPrefix(typeStr, "[]"):
+			info.HasSliceResult = true
+		case strings.HasPrefix(typeStr, "["):
+			info.HasArrayResult = true
+		case strings.HasPrefix(typeStr, "chan "),
+			strings.HasPrefix(typeStr, "<-chan "),
+			strings.HasPrefix(typeStr, "chan<- "):
+			info.HasChannelResult = true
+		}
+
+		// Check if return type is an interface
+		if pkg != nil && pkg.TypesInfo != nil {
+			if tv, ok := pkg.TypesInfo.Types[field.Type]; ok {
+				if _, isIface := tv.Type.Underlying().(*types.Interface); isIface {
+					info.ReturnsInterface = true
+				}
+			}
+		}
+	}
+}
+
 // inspectSignature extracts basic signature metadata used for style suggestion heuristics.
 func inspectSignature(fn *ast.FuncDecl, pkg *packages.Package) signatureInfo {
 	var info signatureInfo
 	if fn.Type.Params != nil {
-		for _, field := range fn.Type.Params.List {
-			typeStr := typeToString(field.Type)
-			count := len(field.Names)
-			if count == 0 {
-				count = 1
-			}
-			if typeStr == "context.Context" {
-				info.HasContext = true
-				continue
-			}
-			if strings.HasPrefix(typeStr, "chan ") ||
-				strings.HasPrefix(typeStr, "<-chan ") ||
-				strings.HasPrefix(typeStr, "chan<- ") {
-				info.HasChannelParam = true
-			}
-			info.NumParams += count
-		}
+		scannerInfoFromParams(&info, fn.Type.Params.List)
 	}
 	if fn.Type.Results != nil {
-		for _, field := range fn.Type.Results.List {
-			typeStr := typeToString(field.Type)
-			count := len(field.Names)
-			if count == 0 {
-				count = 1
-			}
-			info.NumResults += count
-			if typeStr == "error" {
-				info.HasError = true
-			} else if strings.HasPrefix(typeStr, "*") {
-				info.HasPointerResult = true
-			} else if strings.HasPrefix(typeStr, "[]") {
-				info.HasSliceResult = true
-			} else if strings.HasPrefix(typeStr, "[") {
-				info.HasArrayResult = true
-			} else if strings.HasPrefix(typeStr, "chan ") ||
-				strings.HasPrefix(typeStr, "<-chan ") ||
-				strings.HasPrefix(typeStr, "chan<- ") {
-				info.HasChannelResult = true
-			}
-			// Check if return type is an interface
-			if pkg != nil && pkg.TypesInfo != nil {
-				if tv, ok := pkg.TypesInfo.Types[field.Type]; ok {
-					if _, isIface := tv.Type.Underlying().(*types.Interface); isIface {
-						info.ReturnsInterface = true
-					}
-				}
-			}
-		}
+		scannerInfoFromResults(&info, pkg, fn.Type.Results.List)
 	}
 	return info
 }
@@ -189,12 +202,7 @@ func collectAllAliases(pkg *packages.Package) map[string]string {
 	return aliases
 }
 
-func buildFuncSummary(
-	fn *ast.FuncDecl,
-	pkg *packages.Package,
-	aliases map[string]string,
-	sourceDir, sourceFile string,
-) FuncSummary {
+func buildFuncSummary(fn *ast.FuncDecl, pkg *packages.Package, aliases map[string]string, sourceDir, sourceFile string) FuncSummary {
 	// Receiver type (strip pointer).
 	receiverType := ""
 	if fn.Recv != nil && len(fn.Recv.List) > 0 {
@@ -325,73 +333,150 @@ func testFuncExistsInDir(sourceDir, testFuncName string) bool {
 	return false
 }
 
-// extractInterfaceDeps detects interface-typed struct fields from the receiver or
-// constructor config param, returning deduplicated InterfaceDep entries.
-func extractInterfaceDeps(
-	fn *ast.FuncDecl,
-	pkg *packages.Package,
-	aliases map[string]string,
-	sourceDir string,
-) []InterfaceDep {
-	seen := make(map[string]bool)
-	var deps []InterfaceDep
+type interfaceDepsData struct {
+	aliases   map[string]string
+	pkg       *packages.Package
+	seen      map[string]bool
+	sourceDir string
+	deps      []InterfaceDep
+}
 
-	addDepsFromStruct := func(strct *types.Struct) {
-		for i := 0; i < strct.NumFields(); i++ {
-			field := strct.Field(i)
-			if _, isIface := field.Type().Underlying().(*types.Interface); !isIface {
-				continue
-			}
-			named, ok := field.Type().(*types.Named)
-			if !ok {
-				continue
-			}
-			obj := named.Obj()
-			if obj.Pkg() == nil {
-				continue // built-in (error, etc.)
-			}
-			typeName := obj.Name()
-			if seen[typeName] {
-				continue
-			}
-			seen[typeName] = true
+func newInterfaceDepsData(pkg *packages.Package, aliases map[string]string, sourceDir string) *interfaceDepsData {
+	return &interfaceDepsData{
+		pkg:       pkg,
+		aliases:   aliases,
+		seen:      make(map[string]bool),
+		sourceDir: sourceDir,
+	}
+}
 
-			importPath := obj.Pkg().Path()
-			qualifier := resolveQualifierByPath(importPath, obj.Pkg().Name(), aliases)
+func (id *interfaceDepsData) add(strct *types.Struct) {
+	for i := 0; i < strct.NumFields(); i++ {
+		field := strct.Field(i)
+		if _, isIface := field.Type().Underlying().(*types.Interface); !isIface {
+			continue
+		}
 
-			mockFrom := qualifier + "." + typeName
-			if qualifier == "" || qualifier == pkg.Name {
-				mockFrom = typeName
-			}
+		named, ok := field.Type().(*types.Named)
+		if !ok {
+			continue
+		}
 
-			mockFile := "mock_" + strings.ToLower(typeName) + "_test.go"
-			mockPath := filepath.Join(sourceDir, mockFile)
-			_, statErr := os.Stat(mockPath)
+		obj := named.Obj()
+		if obj.Pkg() == nil {
+			continue // built-in (error, etc.)
+		}
 
-			deps = append(deps, InterfaceDep{
-				TypeName:   typeName,
-				Qualifier:  qualifier,
-				ImportPath: importPath,
-				MockFile:   mockFile,
-				MockExists: statErr == nil,
-				MockFrom:   mockFrom,
-			})
+		typeName := obj.Name()
+		if id.seen[typeName] {
+			continue
+		}
+		id.seen[typeName] = true
+
+		importPath := obj.Pkg().Path()
+		qualifier := resolveQualifierByPath(importPath, obj.Pkg().Name(), id.aliases)
+
+		mockFrom := qualifier + "." + typeName
+		if qualifier == "" || qualifier == id.pkg.Name {
+			mockFrom = typeName
+		}
+
+		mockFile := "mock_" + strings.ToLower(typeName) + "_test.go"
+		mockPath := filepath.Join(id.sourceDir, mockFile)
+		_, statErr := os.Stat(mockPath)
+
+		id.deps = append(id.deps, InterfaceDep{
+			TypeName:   typeName,
+			Qualifier:  qualifier,
+			ImportPath: importPath,
+			MockFile:   mockFile,
+			MockExists: statErr == nil,
+			MockFrom:   mockFrom,
+		})
+	}
+}
+
+func getStruct(t types.Type) (*types.Struct, bool) {
+	if ptr, ok := t.(*types.Pointer); ok {
+		t = ptr.Elem()
+	}
+
+	if named, ok := t.(*types.Named); ok {
+		if strct, ok := named.Underlying().(*types.Struct); ok {
+			return strct, true
 		}
 	}
+
+	return nil, false
+}
+
+// extractInterfaceDeps detects interface-typed struct fields from the receiver or
+// constructor config param, returning deduplicated InterfaceDep entries.
+func extractInterfaceDeps(fn *ast.FuncDecl, pkg *packages.Package, aliases map[string]string, sourceDir string) []InterfaceDep {
+	// seen := make(map[string]bool)
+	// var deps []InterfaceDep
+
+	// addDepsFromStruct := func(strct *types.Struct) {
+	// 	for i := 0; i < strct.NumFields(); i++ {
+	// 		field := strct.Field(i)
+	// 		if _, isIface := field.Type().Underlying().(*types.Interface); !isIface {
+	// 			continue
+	// 		}
+	// 		named, ok := field.Type().(*types.Named)
+	// 		if !ok {
+	// 			continue
+	// 		}
+	// 		obj := named.Obj()
+	// 		if obj.Pkg() == nil {
+	// 			continue // built-in (error, etc.)
+	// 		}
+	// 		typeName := obj.Name()
+	// 		if seen[typeName] {
+	// 			continue
+	// 		}
+	// 		seen[typeName] = true
+
+	// 		importPath := obj.Pkg().Path()
+	// 		qualifier := resolveQualifierByPath(importPath, obj.Pkg().Name(), aliases)
+
+	// 		mockFrom := qualifier + "." + typeName
+	// 		if qualifier == "" || qualifier == pkg.Name {
+	// 			mockFrom = typeName
+	// 		}
+
+	// 		mockFile := "mock_" + strings.ToLower(typeName) + "_test.go"
+	// 		mockPath := filepath.Join(sourceDir, mockFile)
+	// 		_, statErr := os.Stat(mockPath)
+
+	// 		deps = append(deps, InterfaceDep{
+	// 			TypeName:   typeName,
+	// 			Qualifier:  qualifier,
+	// 			ImportPath: importPath,
+	// 			MockFile:   mockFile,
+	// 			MockExists: statErr == nil,
+	// 			MockFrom:   mockFrom,
+	// 		})
+	// 	}
+	// }
+
+	data := newInterfaceDepsData(pkg, aliases, sourceDir)
 
 	// Methods: inspect receiver struct fields.
 	if fn.Recv != nil && len(fn.Recv.List) > 0 && pkg.TypesInfo != nil {
 		recvTypeExpr := fn.Recv.List[0].Type
 		if tv, ok := pkg.TypesInfo.Types[recvTypeExpr]; ok {
-			t := tv.Type
-			if ptr, ok := t.(*types.Pointer); ok {
-				t = ptr.Elem()
+			if strct, ok := getStruct(tv.Type); ok {
+				data.add(strct)
 			}
-			if named, ok := t.(*types.Named); ok {
-				if strct, ok := named.Underlying().(*types.Struct); ok {
-					addDepsFromStruct(strct)
-				}
-			}
+			// if ptr, ok := t.(*types.Pointer); ok {
+			// 	t = ptr.Elem()
+			// }
+			// if named, ok := t.(*types.Named); ok {
+			// 	if strct, ok := named.Underlying().(*types.Struct); ok {
+			// 		data.add(strct)
+			// 		// addDepsFromStruct(strct)
+			// 	}
+			// }
 		}
 	}
 
@@ -399,19 +484,25 @@ func extractInterfaceDeps(
 	if fn.Recv == nil && fn.Type.Params != nil && pkg.TypesInfo != nil {
 		for _, param := range fn.Type.Params.List {
 			if tv, ok := pkg.TypesInfo.Types[param.Type]; ok {
-				t := tv.Type
-				if ptr, ok := t.(*types.Pointer); ok {
-					t = ptr.Elem()
+				if strct, ok := getStruct(tv.Type); ok {
+					data.add(strct)
+					break
 				}
-				if named, ok := t.(*types.Named); ok {
-					if strct, ok := named.Underlying().(*types.Struct); ok {
-						addDepsFromStruct(strct)
-						break // only inspect first eligible param
-					}
-				}
+
+				// t := tv.Type
+				// if ptr, ok := t.(*types.Pointer); ok {
+				// 	t = ptr.Elem()
+				// }
+				// if named, ok := t.(*types.Named); ok {
+				// 	if strct, ok := named.Underlying().(*types.Struct); ok {
+				// 		data.add(strct)
+				// 		// addDepsFromStruct(strct)
+				// 		break // only inspect first eligible param
+				// 	}
+				// }
 			}
 		}
 	}
 
-	return deps
+	return data.deps
 }
