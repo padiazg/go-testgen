@@ -22,6 +22,10 @@ func mergeList(pkgs []*packages.Package) (*ScanResult, error) {
 			return nil, err
 		}
 		merged.Funcs = append(merged.Funcs, sub.Funcs...)
+		// Copy package metadata from the last (most specific) package
+		merged.ImportPath = sub.ImportPath
+		merged.SourceDir = sub.SourceDir
+		merged.Package = sub.Package
 	}
 	return &merged, nil
 }
@@ -61,7 +65,7 @@ func ScanPackage(pkgPattern string) (*ScanResult, error) {
 type signatureInfo struct {
 	NumParams        int
 	NumResults       int
-	HasContext        bool
+	HasContext       bool
 	HasError         bool
 	HasPointerResult bool
 	HasSliceResult   bool
@@ -104,6 +108,7 @@ func scanSinglePackage(pkg *packages.Package) (*ScanResult, error) {
 				continue
 			}
 			summary := buildFuncSummary(fn, pkg, aliases, sourceDir, filepath.Base(sourceFile))
+			summary.PackageImportPath = pkg.PkgPath
 			result.Funcs = append(result.Funcs, summary)
 		}
 	}

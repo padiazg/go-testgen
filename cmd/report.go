@@ -41,6 +41,11 @@ func runReport(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("scan package: %w", err)
 	}
 
+	if len(result.Funcs) == 0 {
+		fmt.Printf("No functions found.")
+		return nil
+	}
+
 	// Populate suggested style for each function.
 	for i := range result.Funcs {
 		result.Funcs[i].SuggestedStyle = generator.SuggestStyle(&result.Funcs[i]).String()
