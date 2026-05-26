@@ -3,7 +3,6 @@ package generator
 import (
 	"fmt"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/padiazg/go-testgen/internal/analyzer"
@@ -132,46 +131,8 @@ func generateImports(info *analyzer.FuncInfo) string {
 		Alias string
 	}
 
-	var imports []importEntry
-	seen := make(map[string]bool)
-
-	addImport := func(importPath, pkgAlias string) {
-		if importPath == "" || seen[importPath] || importPath == info.ImportPath || importPath == "context" {
-			return
-		}
-		seen[importPath] = true
-
-		alias := ""
-		if pkgAlias != "" {
-			parts := strings.Split(importPath, "/")
-			defaultName := parts[len(parts)-1]
-			if pkgAlias != defaultName {
-				alias = pkgAlias
-			}
-		}
-		imports = append(imports, importEntry{Path: importPath, Alias: alias})
-	}
-
-	for _, p := range info.Params {
-		addImport(p.ImportPath, p.Package)
-	}
-	for _, r := range info.Results {
-		if !r.IsError {
-			addImport(r.ImportPath, r.Package)
-		}
-	}
-
-	slices.SortFunc(imports, func(a, b importEntry) int {
-		return strings.Compare(a.Path, b.Path)
-	})
-
-	hasNonErrorResults := false
-	for _, r := range info.Results {
-		if !r.IsError {
-			hasNonErrorResults = true
-			break
-		}
-	}
+	imports := info.GetImports()
+	hasNonErrorResults := info.HasNonErrorResults()
 
 	var lines []string
 	lines = append(lines, "import (")
@@ -243,7 +204,7 @@ func placeholderValue(typeName string) string {
 		return "0"
 	case strings.HasPrefix(typeName, "bool"):
 		return "false"
-case strings.HasPrefix(typeName, "["):
+	case strings.HasPrefix(typeName, "["):
 		bracketIdx := strings.Index(typeName, "]")
 		if bracketIdx > 0 {
 			return typeName + "{}"

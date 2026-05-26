@@ -4,10 +4,10 @@ import "strings"
 
 // ScanResult holds the full analysis of a package.
 type ScanResult struct {
-	Package    string `json:"package"`
-	ImportPath string `json:"importPath"`
-	SourceDir  string `json:"sourceDir"`
 	Funcs      Funcs  `json:"funcs"`
+	ImportPath string `json:"importPath"`
+	Package    string `json:"package"`
+	SourceDir  string `json:"sourceDir"`
 }
 
 // FuncSummary describes a single function or method.

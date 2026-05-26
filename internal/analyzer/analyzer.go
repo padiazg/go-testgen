@@ -13,6 +13,99 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+func analyzerInfoFromParams(info *FuncInfo, pkg *packages.Package, list []*ast.Field) {
+	for _, param := range list {
+		if len(param.Names) <= 1 {
+			info.Params = append(info.Params, resolveParamInfo(param, pkg))
+		} else {
+			// Multi-name field: "id, email string" → expand to separate ParamInfo.
+			for _, name := range param.Names {
+				single := &ast.Field{Names: []*ast.Ident{name}, Type: param.Type}
+				info.Params = append(info.Params, resolveParamInfo(single, pkg))
+			}
+		}
+	}
+
+	if len(info.Params) > 0 {
+		firstParam := info.Params[0]
+		if firstParam.IsContext {
+			info.HasContext = true
+		}
+	}
+}
+
+func analyzerInfoFromResults(info *FuncInfo, pkg *packages.Package, list []*ast.Field) {
+	for _, result := range list {
+		ri := resolveResultInfo(result, pkg)
+		info.Results = append(info.Results, ri)
+	}
+
+	if len(info.Results) > 0 {
+		lastResult := info.Results[len(info.Results)-1]
+		if lastResult.IsError {
+			info.HasError = true
+		}
+	}
+}
+
+func analyzerNewInfo(funcSpec string) *FuncInfo {
+	var funcName, receiverType string
+	if strings.Contains(funcSpec, ".") {
+		parts := strings.SplitN(funcSpec, ".", 2)
+		receiverType = parts[0]
+		funcName = parts[1]
+	} else {
+		funcName = funcSpec
+	}
+
+	return &FuncInfo{
+		Name:     funcName,
+		IsMethod: receiverType != "",
+		Receiver: &ReceiverInfo{TypeName: receiverType},
+	}
+}
+
+func analyzerGetFn(info *FuncInfo, pkg *packages.Package) *ast.FuncDecl {
+	for _, syn := range pkg.Syntax {
+		for _, decl := range syn.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok {
+				continue
+			}
+
+			if fn.Name.Name != info.Name {
+				continue
+			}
+
+			switch {
+			case info.Receiver.TypeName != "":
+				if fn.Recv == nil || len(fn.Recv.List) == 0 {
+					continue
+				}
+				recvType := typeExprToString(fn.Recv.List[0].Type)
+				isPointer := strings.HasPrefix(recvType, "*")
+				recvType = strings.TrimPrefix(recvType, "*")
+				if recvType != info.Receiver.TypeName {
+					continue
+				}
+
+				info.Receiver.IsPointer = isPointer
+
+				// Find factory function for this receiver type
+				info.FactoryFunc, info.FactoryParams = findFactoryFunc(pkg, recvType)
+			case fn.Recv != nil:
+				continue
+			}
+
+			info.ImportAliases = collectImportAliases(pkg, syn)
+
+			return fn
+		}
+	}
+
+	return nil
+}
+
 func Load(pkgPattern, funcSpec string) (*FuncInfo, error) {
 	pkgs, err := getPackages(pkgPattern)
 	if err != nil {
@@ -28,109 +121,36 @@ func Load(pkgPattern, funcSpec string) (*FuncInfo, error) {
 		return nil, fmt.Errorf("no Go files found")
 	}
 
-	var funcName, receiverType string
-	if strings.Contains(funcSpec, ".") {
-		parts := strings.SplitN(funcSpec, ".", 2)
-		receiverType = parts[0]
-		funcName = parts[1]
-	} else {
-		funcName = funcSpec
-	}
+	info := analyzerNewInfo(funcSpec)
 
-	info := &FuncInfo{
-		Name:     funcName,
-		IsMethod: receiverType != "",
-		Receiver: &ReceiverInfo{TypeName: receiverType},
-	}
-
-	sourceFile, err := FindFileInSrc(pkgPattern, funcName)
+	sourceFile, err := FindFileInSrc(pkgPattern, info.Name)
 	if err != nil {
 		return nil, fmt.Errorf("find source file: %w", err)
 	}
 	info.SourceFile = sourceFile
 
-	for _, syn := range pkg.Syntax {
-		for _, decl := range syn.Decls {
-			fn, ok := decl.(*ast.FuncDecl)
-			if !ok {
-				continue
-			}
-			if fn.Name.Name != funcName {
-				continue
-			}
-
-			if receiverType != "" {
-				if fn.Recv == nil || len(fn.Recv.List) == 0 {
-					continue
-				}
-				recvType := typeExprToString(fn.Recv.List[0].Type)
-				isPointer := false
-				if strings.HasPrefix(recvType, "*") {
-					isPointer = true
-				}
-				recvType = strings.TrimPrefix(recvType, "*")
-				if recvType != receiverType {
-					continue
-				}
-				info.Receiver.IsPointer = isPointer
-
-				// Find factory function for this receiver type
-				info.FactoryFunc, info.FactoryParams = findFactoryFunc(pkg, recvType)
-			} else if fn.Recv != nil {
-				continue
-			}
-
-			info.Package = pkg.Name
-			info.ImportPath = pkg.PkgPath
-			if fn.Doc != nil {
-				info.Doc = fn.Doc.Text()
-			}
-
-			if fn.Type.Params != nil {
-				for _, param := range fn.Type.Params.List {
-					if len(param.Names) <= 1 {
-						pi := resolveParamInfo(param, pkg)
-						info.Params = append(info.Params, pi)
-					} else {
-						// Multi-name field: "id, email string" → expand to separate ParamInfo.
-						for _, name := range param.Names {
-							single := &ast.Field{Names: []*ast.Ident{name}, Type: param.Type}
-							pi := resolveParamInfo(single, pkg)
-							info.Params = append(info.Params, pi)
-						}
-					}
-				}
-			}
-
-			if fn.Type.Results != nil {
-				for _, result := range fn.Type.Results.List {
-					ri := resolveResultInfo(result, pkg)
-					info.Results = append(info.Results, ri)
-				}
-			}
-
-			if len(info.Results) > 0 {
-				lastResult := info.Results[len(info.Results)-1]
-				if lastResult.IsError {
-					info.HasError = true
-				}
-			}
-
-			if len(info.Params) > 0 {
-				firstParam := info.Params[0]
-				if firstParam.IsContext {
-					info.HasContext = true
-				}
-			}
-
-			info.Imports = collectImports(pkg)
-			info.ImportAliases = collectImportAliases(pkg, syn)
-
-			return info, nil
-		}
+	fn := analyzerGetFn(info, pkg)
+	if fn == nil {
+		return nil, fmt.Errorf("function %s not found in package", funcSpec)
 	}
 
-	return nil, fmt.Errorf("function %s not found in package", funcSpec)
+	info.Package = pkg.Name
+	info.ImportPath = pkg.PkgPath
+	if fn.Doc != nil {
+		info.Doc = fn.Doc.Text()
+	}
+
+	if fn.Type.Params != nil {
+		analyzerInfoFromParams(info, pkg, fn.Type.Params.List)
+	}
+
+	if fn.Type.Results != nil {
+		analyzerInfoFromResults(info, pkg, fn.Type.Results.List)
+	}
+
+	info.Imports = collectImports(pkg)
+
+	return info, nil
 }
 
 func typeExprToString(expr ast.Expr) string {
@@ -348,15 +368,16 @@ func collectImportAliases(pkg *packages.Package, file *ast.File) map[string]stri
 			if imp.Name.Name != "_" && imp.Name.Name != "." {
 				aliases[path] = imp.Name.Name
 			}
+			continue
+		}
+
+		// No explicit alias: use the imported package's declared name
+		if importedPkg, ok := pkg.Imports[path]; ok {
+			aliases[path] = importedPkg.Name
 		} else {
-			// No explicit alias: use the imported package's declared name
-			if importedPkg, ok := pkg.Imports[path]; ok {
-				aliases[path] = importedPkg.Name
-			} else {
-				// Fallback: last segment of path
-				parts := strings.Split(path, "/")
-				aliases[path] = parts[len(parts)-1]
-			}
+			// Fallback: last segment of path
+			parts := strings.Split(path, "/")
+			aliases[path] = parts[len(parts)-1]
 		}
 	}
 	return aliases

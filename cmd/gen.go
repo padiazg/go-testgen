@@ -16,6 +16,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type mockSource struct {
+	ifaceName string
+	qualifier string
+	source    []byte
+}
+
 // genCmd represents the gen command
 var (
 	configFlag    string
@@ -64,34 +70,14 @@ func runGen(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "FuncInfo:\n%s\n\n", b)
 	}
 
-	testFuncName := analyzer.FindTestFuncName(info)
+	testFuncName, isMerge := funcName(info)
 
-	var isMerge bool
-	if outputFlag == "" {
-		targetPath := analyzer.DeriveTestPath(info.SourceFile)
-		if _, err := os.Stat(targetPath); err == nil {
-			exists, _ := analyzer.TestExistsInFile(targetPath, testFuncName)
-			isMerge = !exists
-		}
-	}
-
-	// Resolve test style: flag > config > default "check".
-	styleName := styleFlag
-	if styleName == "" {
-		styleName = cfg.TestStyle
-	}
-	testStyle, err := generator.ParseTestStyle(styleName)
-	if err != nil {
-		return fmt.Errorf("invalid --style: %w", err)
-	}
-
-	gen, err := generator.NewForStyle(testStyle, cfg)
+	gen, err := getGenerator(cfg)
 	if err != nil {
 		return fmt.Errorf("create generator: %w", err)
 	}
 
-	genReq := generator.GenerateRequest{Info: info, IsMerge: isMerge}
-	result, err := gen.Generate(genReq)
+	result, err := gen.Generate(generator.GenerateRequest{Info: info, IsMerge: isMerge})
 	if err != nil {
 		return fmt.Errorf("generate: %w", err)
 	}
@@ -117,6 +103,41 @@ func runGen(cmd *cobra.Command, args []string) error {
 	return writeOutput(formatted, outputFlag, info.SourceFile, testFuncName, isMerge, info)
 }
 
+func funcName(info *analyzer.FuncInfo) (string, bool) {
+	testFuncName := analyzer.FindTestFuncName(info)
+
+	var isMerge bool
+	if outputFlag == "" {
+		targetPath := analyzer.DeriveTestPath(info.SourceFile)
+		if _, err := os.Stat(targetPath); err == nil {
+			exists, _ := analyzer.TestExistsInFile(targetPath, testFuncName)
+			isMerge = !exists
+		}
+	}
+
+	return testFuncName, isMerge
+}
+
+func getGenerator(cfg *config.Config) (generator.TestGenerator, error) {
+	// Resolve test style: flag > config > default "check".
+	styleName := styleFlag
+	if styleName == "" {
+		styleName = cfg.TestStyle
+	}
+
+	testStyle, err := generator.ParseTestStyle(styleName)
+	if err != nil {
+		return nil, fmt.Errorf("invalid --style: %w", err)
+	}
+
+	gen, err := generator.NewForStyle(testStyle, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("create generator: %w", err)
+	}
+
+	return gen, nil
+}
+
 func generateMocks(pkgPath string, info *analyzer.FuncInfo, outputFlag string) error {
 	if len(mockFromFlags) == 0 {
 		return nil
@@ -124,49 +145,28 @@ func generateMocks(pkgPath string, info *analyzer.FuncInfo, outputFlag string) e
 
 	// Determine output directory for mock files.
 	outDir := ""
-	if outputFlag != "" && outputFlag != "-" {
+	switch {
+	case outputFlag != "" && outputFlag != "-":
 		outDir = filepath.Dir(outputFlag)
-	} else if info.SourceFile != "" {
+	case info.SourceFile != "":
 		outDir = filepath.Dir(info.SourceFile)
-	}
-	if outDir == "" {
+	default:
 		return fmt.Errorf("cannot determine output directory for mock files")
 	}
 
 	for _, mockSpec := range mockFromFlags {
-		var qualifier, ifaceName string
-
-		if strings.HasPrefix(mockSpec, ".") && len(mockSpec) > 1 {
-			qualifier = ""
-			ifaceName = mockSpec[1:]
-		} else if strings.Contains(mockSpec, ".") {
-			parts := strings.SplitN(mockSpec, ".", 2)
-			qualifier, ifaceName = parts[0], parts[1]
-		} else {
-			qualifier = ""
-			ifaceName = mockSpec
-		}
-
-		iface, err := analyzer.LoadInterface(pkgPath, qualifier, ifaceName, info.ImportAliases, info.ImportPath)
+		mockSource, err := source(pkgPath, info, mockSpec)
 		if err != nil {
-			return fmt.Errorf("load interface %s: %w", mockSpec, err)
+			return fmt.Errorf("generate mock: %w", err)
 		}
 
-		src, err := generator.GenerateMock(generator.MockGenRequest{
-			Info:    iface,
-			PkgName: info.Package,
-		})
-		if err != nil {
-			return fmt.Errorf("generate mock %s: %w", ifaceName, err)
-		}
-
-		formatted, err := analyzer.FormatCode(src)
+		formatted, err := analyzer.FormatCode(mockSource.source)
 		if err != nil {
 			// Don't fail on format errors — write unformatted so user can inspect.
-			formatted = src
+			formatted = mockSource.source
 		}
 
-		mockFile := filepath.Join(outDir, generator.MockFileName(ifaceName))
+		mockFile := filepath.Join(outDir, generator.MockFileName(mockSource.ifaceName))
 
 		if outputFlag == "-" {
 			fmt.Printf("\n// --- mock: %s ---\n", mockFile)
@@ -184,6 +184,7 @@ func generateMocks(pkgPath string, info *analyzer.FuncInfo, outputFlag string) e
 			return fmt.Errorf("write mock file %s: %w", mockFile, err)
 		}
 	}
+
 	return nil
 }
 
@@ -222,4 +223,51 @@ func writeToFile(path string, content []byte, testFuncName string, isMerge bool,
 		return analyzer.MergeTestFile(path, content, imports)
 	}
 	return os.WriteFile(path, content, 0644)
+}
+
+func interfaceName(mockSpec string) (string, string) {
+	var qualifier, ifaceName string
+
+	switch {
+	case strings.HasPrefix(mockSpec, ".") && len(mockSpec) > 1:
+		qualifier = ""
+		ifaceName = mockSpec[1:]
+	case strings.Contains(mockSpec, "."):
+		parts := strings.SplitN(mockSpec, ".", 2)
+		qualifier, ifaceName = parts[0], parts[1]
+	default:
+		qualifier = ""
+		ifaceName = mockSpec
+	}
+
+	return qualifier, ifaceName
+}
+
+func source(pkgPath string, info *analyzer.FuncInfo, mockSpec string) (*mockSource, error) {
+	var result mockSource
+
+	result.qualifier, result.ifaceName = interfaceName(mockSpec)
+
+	// pkgPath, result.qualifier, result.ifaceName, info.ImportAliases, info.ImportPath
+	iface, err := analyzer.LoadInterface(&analyzer.InterfaceParams{
+		PkgPattern:       pkgPath,
+		Qualifier:        result.qualifier,
+		IfaceName:        result.ifaceName,
+		ConsumingAliases: info.ImportAliases,
+		ConsumingPkgPath: info.ImportPath,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("load interface %s: %w", mockSpec, err)
+	}
+
+	result.source, err = generator.GenerateMock(generator.MockGenRequest{
+		Info:    iface,
+		PkgName: info.Package,
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("generate mock %s: %w", result.ifaceName, err)
+	}
+
+	return &result, nil
 }

@@ -90,15 +90,7 @@ func printTableReport(result *analyzer.ScanResult, pkgPattern string) {
 			testStatus = "✓"
 		}
 
-		var depLines, mockLines []string
-		for _, dep := range fn.InterfaceDeps {
-			depLines = append(depLines, dep.MockFrom)
-			mockStatus := "✗ "
-			if dep.MockExists {
-				mockStatus = "✓ "
-			}
-			mockLines = append(mockLines, mockStatus+dep.MockFile)
-		}
+		depLines, mockLines := fn.InterfaceDeps.Lines()
 
 		t.AppendRow(table.Row{
 			fn.SourceFile,
@@ -113,26 +105,8 @@ func printTableReport(result *analyzer.ScanResult, pkgPattern string) {
 	t.Render()
 
 	// Suggestions for untested functions.
-	var suggestions []string
-	for _, fn := range result.Funcs {
-		if fn.TestExists {
-			continue
-		}
-		cmd := "  go-testgen gen " + pkgPattern + " " + fn.FuncSpec
-		if fn.SuggestedStyle != "" && fn.SuggestedStyle != "check" {
-			cmd += " --style " + fn.SuggestedStyle
-		}
-		var mockArgs []string
-		for _, dep := range fn.InterfaceDeps {
-			if !dep.MockExists {
-				mockArgs = append(mockArgs, "--mock-from "+dep.MockFrom)
-			}
-		}
-		if len(mockArgs) > 0 {
-			cmd += " " + strings.Join(mockArgs, " ")
-		}
-		suggestions = append(suggestions, cmd)
-	}
+	suggestions := result.Funcs.Suggestions(pkgPattern)
+
 	if len(suggestions) > 0 {
 		fmt.Println("\nSuggestions:")
 		for _, s := range suggestions {
@@ -175,17 +149,15 @@ func printReport(result *analyzer.ScanResult, pkgPattern string) {
 			if fn.SuggestedStyle != "" && fn.SuggestedStyle != "check" {
 				cmd += " --style " + fn.SuggestedStyle
 			}
-			var mockArgs []string
-			for _, dep := range fn.InterfaceDeps {
-				if !dep.MockExists {
-					mockArgs = append(mockArgs, "--mock-from "+dep.MockFrom)
-				}
-			}
-			if len(mockArgs) == 0 {
+
+			mockArgs := fn.InterfaceDeps.MockArgs()
+
+			switch len(mockArgs) {
+			case 0:
 				fmt.Printf("       Suggest: %s\n", cmd)
-			} else if len(mockArgs) == 1 {
+			case 1:
 				fmt.Printf("       Suggest: %s %s\n", cmd, mockArgs[0])
-			} else {
+			default:
 				fmt.Printf("       Suggest: %s \\\n", cmd)
 				for i, m := range mockArgs {
 					if i < len(mockArgs)-1 {
