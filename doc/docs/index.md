@@ -43,6 +43,16 @@ go-testgen correctly handles `chan`, `chan<-`, and `<-chan` in parameters and re
 
 → [Channel Type Support](concepts/channels.md)
 
+### Spec-Driven Case Generation
+
+Author a `.testspec.yaml` describing scenarios in domain terms, then run `gen-cases` to materialize the struct literals into the existing test file with `// ai-hint:` stubs for a generative AI to complete.
+
+```bash
+go-testgen gen-cases ./engine/engine_start.testspec.yaml
+```
+
+→ [gen-cases command reference](commands/gen-cases.md)
+
 ### Smart Merge
 
 If the target `_test.go` already exists, go-testgen appends the new test and injects missing imports. It never overwrites an existing test function.

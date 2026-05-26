@@ -1,6 +1,20 @@
 # Adding Test Cases
 
-go-testgen generates placeholder `TODO` cases. This page explains how to turn them into real tests.
+go-testgen generates placeholder `TODO` cases. This page explains how to turn them into real tests — either manually or using `gen-cases` to materialize cases from a `.testspec.yaml` spec.
+
+## Option A: Use `gen-cases` (spec-driven)
+
+If you have a `.testspec.yaml` describing the scenarios, run:
+
+```bash
+go-testgen gen-cases ./path/to/function.testspec.yaml
+```
+
+This inserts struct literals directly into the `tests` slice with `// ai-hint:` comments for a generative AI to complete. See the [`gen-cases` command reference](../commands/gen-cases.md) for full details.
+
+The rest of this page covers the manual approach.
+
+---
 
 ## What Gets Generated
 
