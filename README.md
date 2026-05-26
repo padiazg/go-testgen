@@ -71,6 +71,45 @@ go-testgen gen ./internal/transport/i2c I2CTransport.Read \
 
 **Smart merge:** if the target `_test.go` already exists but doesn't contain the test function, go-testgen appends the new test and injects any missing imports. It never overwrites an existing test function without prompting.
 
+### `gen-cases` — materialize test cases from a spec
+
+```bash
+go-testgen gen-cases <spec-file> [flags]
+```
+
+Reads a `.testspec.yaml` describing what to test and inserts the corresponding struct literal entries into the `tests` slice of the existing `_test.go`. The scaffolding must already exist (run `gen` first). Each case includes `// ai-hint:` comments so a generative AI can complete the concrete `before` bodies and check values.
+
+```bash
+# Preview without writing
+go-testgen gen-cases --dry-run ./engine/engine_start.testspec.yaml
+
+# Write cases to the test file
+go-testgen gen-cases ./engine/engine_start.testspec.yaml
+
+# Override output path
+go-testgen gen-cases -o ./engine/engine_test.go ./engine/engine_start.testspec.yaml
+
+# Replace existing entries (re-sync from updated spec)
+go-testgen gen-cases --force ./engine/engine_start.testspec.yaml
+
+# Omit ai-hint comments (plain stubs)
+go-testgen gen-cases --no-hints ./engine/engine_start.testspec.yaml
+```
+
+**Flags:**
+
+| Flag | Default | Description |
+| - | - | - |
+| `--dry-run` | false | Print generated code to stdout without modifying any file. |
+| `-o`, `--output` | auto | Override the output `_test.go` path. |
+| `--force` | false | Replace existing entries instead of skipping them. |
+| `--no-hints` | false | Omit `// ai-hint:` comments from output. |
+| `-v`, `--verbose` | false | Print a summary of generated/skipped entries. |
+
+**Idempotent:** running twice produces no duplicates. Use `--force` to re-sync cases from an updated spec.
+
+**Pipeline position:** `gen` → spec authoring → **`gen-cases`** → AI fills in `before`/values → `go test`.
+
 ### `inspect` — debug parsed function info
 
 ```bash
@@ -250,9 +289,11 @@ go-testgen report ./internal/core/services/user
 go-testgen gen ./internal/core/services/user Service.CreateUser \
   --mock-from userDomain.UserRepository
 
-# 3. Subsequent functions reuse the existing mock (no --mock-from needed)
-go-testgen gen ./internal/core/services/user Service.FindByID
+# 3. Author a .testspec.yaml describing the scenarios (manually or via AI)
+#    Then materialize the cases into the test file
+go-testgen gen-cases ./internal/core/services/user/service_create_user.testspec.yaml
 
-# 4. Fill in test cases, run tests
+# 4. (Optional) Ask an AI to fill in the ai-hint: stubs using the spec + source
+# 5. Run tests
 go test ./internal/core/services/user/...
 ```

@@ -1,0 +1,249 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/padiazg/go-testgen/testspec.schema.json",
+  "title": "go-testgen test specification",
+  "description": "Describes test cases for a Go function in domain terms, without writing code. go-testgen gen-cases materializes this into _test.go entries.",
+  "type": "object",
+  "required": ["version", "package", "function", "cases"],
+  "additionalProperties": false,
+
+  "definitions": {
+
+    "fixture": {
+      "type": "object",
+      "required": ["name", "type", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "name":        { "type": "string", "description": "Go identifier for the fixture variable." },
+        "type":        { "type": "string", "description": "Go type, e.g. '[]byte', '*Config'." },
+        "description": { "type": "string", "description": "What this fixture represents; emitted as a comment." },
+        "value":       { "type": "string", "description": "Go literal. Omit to generate a TODO placeholder." }
+      }
+    },
+
+    "package_state_var": {
+      "type": "object",
+      "required": ["name", "type", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "name":                 { "type": "string" },
+        "type":                 { "type": "string" },
+        "clear_between_cases":  { "type": "boolean", "default": true,
+                                  "description": "If true, gen-cases emits a clear call at the top of each test case." },
+        "description":          { "type": "string" }
+      }
+    },
+
+    "check_type": {
+      "type": "object",
+      "required": ["id", "type_name", "signature", "composer"],
+      "additionalProperties": false,
+      "properties": {
+        "id":          { "type": "string", "description": "Identifier used in checks[*].for_type and referenced in cases." },
+        "type_name":   { "type": "string", "description": "Go type name, e.g. 'engineTestCheckFn'." },
+        "signature":   { "type": "string", "description": "Full Go type signature, e.g. 'func(*testing.T, *Engine)'." },
+        "composer":    { "type": "string", "description": "Name of the composer var, e.g. 'checkEngine'." },
+        "package":     { "type": "string", "description": "Import path if defined in another package. Omit if same package." },
+        "description": { "type": "string" }
+      }
+    },
+
+    "check_param": {
+      "type": "object",
+      "required": ["name", "type", "doc"],
+      "additionalProperties": false,
+      "properties": {
+        "name":           { "type": "string" },
+        "type":           { "type": "string" },
+        "doc":            { "type": "string" },
+        "sentinel_empty": { "type": "string",
+                            "description": "Documents the special meaning of an empty/zero value, e.g. 'empty string means no error expected'." }
+      }
+    },
+
+    "check": {
+      "type": "object",
+      "required": ["id", "for_type", "scope", "signature", "when"],
+      "additionalProperties": false,
+      "properties": {
+        "id":        { "type": "string", "description": "Function name as written in Go." },
+        "for_type":  { "type": "string", "description": "id of the check_type this check belongs to." },
+        "scope": {
+          "type": "string",
+          "enum": ["global", "local"],
+          "description": "global: package/cross-package scope. local: defined inside the TestXxx function body."
+        },
+        "signature": { "type": "string", "description": "Full Go signature including return type." },
+        "when":      { "type": "string", "description": "When to use this check — its invariant in prose." },
+        "params":    { "type": "array", "items": { "$ref": "#/definitions/check_param" } },
+        "captures":  {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Names of outer-scope variables this closure captures (e.g. buf, logger)."
+        }
+      }
+    },
+
+    "table_field": {
+      "type": "object",
+      "required": ["name", "type", "role"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "role": {
+          "type": "string",
+          "enum": ["input", "gate", "state"],
+          "description": "input: passed to the function or constructor. gate: controls conditional logic in the test body (wantPanic, wantLog). state: used by before/after for setup/teardown."
+        },
+        "doc": { "type": "string" }
+      }
+    },
+
+    "before": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Natural language description of what before does. The AI generates Go code from this."
+        },
+        "mechanism": {
+          "type": "string",
+          "enum": ["testify-mock", "field-injection", "field-reset", "state-mutation", "mixed", "none"],
+          "description": "Dominant setup pattern. Guides the AI to the correct Go idiom."
+        },
+        "returns": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "used_as"],
+          "properties": {
+            "type":    { "type": "string", "description": "Go return type of the before function." },
+            "used_as": { "type": "string", "description": "How the returned value is used in the test body or checks." }
+          }
+        }
+      }
+    },
+
+    "after": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "description": { "type": "string" },
+        "mechanism": {
+          "type": "string",
+          "enum": ["stop-method", "cancel-context", "close-channel", "mixed"],
+          "description": "Teardown pattern."
+        }
+      }
+    },
+
+    "case": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name":        { "type": "string", "description": "Test case name passed to t.Run()." },
+        "description": { "type": "string", "description": "Domain-language description of the scenario." },
+        "fields": {
+          "type": "object",
+          "description": "Values for table_fields entries. Keys must match table_fields[*].name. Values are Go expression strings.",
+          "additionalProperties": { "type": "string" }
+        },
+        "gates": {
+          "type": "object",
+          "description": "Values for gate-role table_fields (wantLog, wantPanic, wantValue, wantErr).",
+          "additionalProperties": { "type": ["string", "boolean"] }
+        },
+        "before": { "$ref": "#/definitions/before" },
+        "after":  { "$ref": "#/definitions/after" },
+        "checks": {
+          "type": "array",
+          "description": "Check call expressions in Go syntax, e.g. 'CheckResultError(\"not ok\")'.",
+          "items": { "type": "string" }
+        },
+        "todo": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, generate this case as a TODO comment placeholder."
+        }
+      }
+    }
+
+  },
+
+  "properties": {
+
+    "version": {
+      "type": "string",
+      "enum": ["1"],
+      "description": "Schema version."
+    },
+
+    "package": {
+      "type": "string",
+      "description": "Go package pattern, e.g. './connector/webhook' or 'github.com/org/repo/pkg'."
+    },
+
+    "function": {
+      "type": "string",
+      "description": "FuncSpec in go-testgen format: 'FuncName' or 'Receiver.MethodName'."
+    },
+
+    "test_file": {
+      "type": "string",
+      "description": "Optional override for the target _test.go file path."
+    },
+
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the test body is structured. Gives the AI the frame before generating case code.",
+      "properties": {
+        "subject_init": {
+          "type": "string",
+          "description": "Go expression or description for how the subject is constructed per case."
+        },
+        "shared_setup": {
+          "type": "string",
+          "description": "Code/description for infrastructure declared outside the test table (loggers, buffers, timers)."
+        },
+        "package_state": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/package_state_var" }
+        }
+      }
+    },
+
+    "fixtures": {
+      "type": "array",
+      "description": "Shared data variables declared once, referenced by name in before descriptions.",
+      "items": { "$ref": "#/definitions/fixture" }
+    },
+
+    "check_types": {
+      "type": "array",
+      "description": "Check function types used in this test. There may be more than one.",
+      "items": { "$ref": "#/definitions/check_type" }
+    },
+
+    "checks": {
+      "type": "array",
+      "description": "Catalog of available check functions. The AI uses this to choose and call checks correctly.",
+      "items": { "$ref": "#/definitions/check" }
+    },
+
+    "table_fields": {
+      "type": "array",
+      "description": "Extra fields in the test struct beyond name/checks/before/after.",
+      "items": { "$ref": "#/definitions/table_field" }
+    },
+
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Test cases to generate.",
+      "items": { "$ref": "#/definitions/case" }
+    }
+  }
+}
