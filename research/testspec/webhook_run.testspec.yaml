@@ -1,0 +1,89 @@
+version: "1"
+package: ./connector/webhook
+function: WebhookNotifier.Run
+
+# WebhookNotifier.Run() — goroutine loop que consume n.Channel.
+# El test lanza Run() en una goroutine, envía un mensaje, cierra el channel,
+# y verifica el log resultante. No hay closure checks — usa CheckLoggerError
+# del package model que verifica el buffer del logger.
+
+context:
+  subject_init: "n := New(tt.config)"
+  shared_setup: >
+    Declarar var buf bytes.Buffer y logger := log.New(&buf, "test:", log.LstdFlags)
+    fuera del loop de tests. Llamar buf.Reset() al final de cada caso.
+    El test body:
+      1. Llamar tt.before(n) si no es nil.
+      2. Lanzar go n.Run() y time.Sleep(10ms).
+      3. En goroutine: enviar &model.Notification{Data:"Test message"} al channel y cerrarlo.
+      4. time.Sleep(10ms).
+      5. Ejecutar checks.
+      6. buf.Reset().
+
+table_fields:
+  - name: config
+    type: "*Config"
+    role: input
+    doc: Config del notifier. Logger debe apuntar al buf compartido para capturar logs.
+  - name: before
+    type: "func(*WebhookNotifier)"
+    role: state
+    doc: Inyecta el mock HTTP client antes de iniciar Run().
+
+check_types:
+  - id: notifier_check
+    type_name: TestCheckNotifierFn
+    signature: "func(*testing.T, model.Notifier)"
+    composer: CheckNotifier
+    package: github.com/padiazg/notifier/model
+    description: Valida estado del notifier. Aquí se usa para verificar el log.
+
+checks:
+  - id: CheckLoggerError
+    for_type: notifier_check
+    scope: global
+    signature: "model.CheckLoggerError(buf *bytes.Buffer, want string) model.TestCheckNotifierFn"
+    when: >
+      Verificar si el logger escribió (o no) un mensaje de error.
+      want="" verifica que el buffer esté vacío (sin errores).
+      want="substring" verifica que el buffer contenga ese substring.
+    params:
+      - name: buf
+        type: "*bytes.Buffer"
+        doc: El buffer compartido donde escribe el logger. Siempre pasar &buf.
+      - name: want
+        type: string
+        doc: Substring esperado en el log. Empty string = sin log de error.
+        sentinel_empty: "empty string asserts no error was logged"
+    captures: ["buf"]
+
+cases:
+  - name: "fail-forbidden"
+    description: >
+      El HTTP client retorna 403 Forbidden al procesar el mensaje recibido.
+      Run() debe loguear el error vía Logger sin detener el loop ni paniquear.
+    fields:
+      config: "&Config{Logger: logger}"
+    before:
+      description: >
+        Asignar n.client = &mockHTTPClient con DoFunc que retorna
+        &http.Response{StatusCode: http.StatusForbidden, Body: io.NopCloser(bytes.NewBufferString("Forbidden"))}
+        y nil error.
+      mechanism: field-injection
+    checks:
+      - CheckLoggerError(&buf, "webhook returned non-OK status: 403")
+
+  - name: "success"
+    description: >
+      El HTTP client retorna 200 OK. Run() procesa el mensaje sin errores
+      y no escribe nada en el log de errores.
+    fields:
+      config: "&Config{Logger: logger}"
+    before:
+      description: >
+        Asignar n.client = &mockHTTPClient con DoFunc que retorna
+        &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString("Ok"))}
+        y nil error.
+      mechanism: field-injection
+    checks:
+      - CheckLoggerError(&buf, "")

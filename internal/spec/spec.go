@@ -8,29 +8,28 @@ import (
 )
 
 type Spec struct {
-	Version      string        `yaml:"version"`
-	Package      string        `yaml:"package"`
-	Function     string        `yaml:"function"`
-	TestFile     string        `yaml:"test_file"`
-	Context      *Context      `yaml:"context"`
+	Version      string         `yaml:"version"`
+	Package      string         `yaml:"package"`
+	Function     string         `yaml:"function"`
+	TestFile     string         `yaml:"test_file"`
+	Context      *Context       `yaml:"context"`
 	PackageState []PackageState `yaml:"package_state"`
-	Fixtures     []Fixture     `yaml:"fixtures"`
-	CheckTypes   []CheckType   `yaml:"check_types"`
-	Checks       []Check       `yaml:"checks"`
-	TableFields  []TableField  `yaml:"table_fields"`
-	Cases        []Case        `yaml:"cases"`
+	Fixtures     []Fixture      `yaml:"fixtures"`
+	CheckTypes   []CheckType    `yaml:"check_types"`
+	Checks       []Check        `yaml:"checks"`
+	TableFields  []TableField   `yaml:"table_fields"`
+	Cases        []Case         `yaml:"cases"`
 }
 
 type Context struct {
 	SubjectInit string `yaml:"subject_init"`
-	SharedSetup string `yaml:"shared_setup"`
 }
 
 type PackageState struct {
+	Description       string `yaml:"description"`
 	Name              string `yaml:"name"`
 	Type              string `yaml:"type"`
 	ClearBetweenCases bool   `yaml:"clear_between_cases"`
-	Description       string `yaml:"description"`
 }
 
 type Fixture struct {
@@ -74,20 +73,20 @@ type TableField struct {
 }
 
 type Case struct {
-	Name        string            `yaml:"name"`
-	Description string            `yaml:"description"`
-	Fields      map[string]string `yaml:"fields"`
-	Before      *Before           `yaml:"before"`
 	After       *After            `yaml:"after"`
-	Checks      []string          `yaml:"checks"`
+	Before      *Before           `yaml:"before"`
+	Fields      map[string]string `yaml:"fields"`
 	Gates       map[string]string `yaml:"gates"`
+	Description string            `yaml:"description"`
+	Name        string            `yaml:"name"`
+	Checks      []string          `yaml:"checks"`
 	Todo        bool              `yaml:"todo"`
 }
 
 type Before struct {
+	Returns     *Returns `yaml:"returns"`
 	Description string   `yaml:"description"`
 	Mechanism   string   `yaml:"mechanism"`
-	Returns     *Returns `yaml:"returns"`
 }
 
 type After struct {

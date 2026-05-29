@@ -1,0 +1,132 @@
+version: "1"
+package: ./engine
+function: NewEngine
+
+# New(config *Config) *Engine
+# Constructor del Engine. Inicializa el map de notifiers y asigna OnError si se provee.
+
+context:
+  subject_init: "e := New(tt.config)"
+
+table_fields:
+  - name: config
+    type: "*Config"
+    role: input
+    doc: Config del Engine. nil usa defaults (sin OnError, sin notifiers).
+
+check_types:
+  - id: engine_check
+    type_name: engineTestCheckFn
+    signature: "func(*testing.T, *Engine)"
+    composer: checkEngine
+    description: Valida el estado del *Engine después de la construcción.
+
+checks:
+  - id: hasOnError
+    for_type: engine_check
+    scope: global
+    signature: "hasOnError(has bool) engineTestCheckFn"
+    when: >
+      Verificar si e.OnError está seteado o no.
+      Usar has=true cuando Config.OnError se provee.
+      Usar has=false cuando Config es nil o no incluye OnError.
+    params:
+      - name: has
+        type: bool
+        doc: "true = e.OnError debe ser != nil; false = e.OnError debe ser nil"
+
+  - id: hasNotifiers
+    for_type: engine_check
+    scope: global
+    signature: "hasNotifiers(count int) engineTestCheckFn"
+    when: >
+      Verificar la cantidad de notifiers registrados en e.notifiers.
+      Para NewEngine siempre debe ser 0 (ninguno registrado aún).
+    params:
+      - name: count
+        type: int
+        doc: Cantidad esperada de notifiers en e.notifiers.
+
+cases:
+  - name: "default"
+    description: >
+      New(nil) crea un Engine con valores default: sin OnError y sin notifiers.
+    fields:
+      config: "nil"
+    checks:
+      - hasOnError(false)
+      - hasNotifiers(0)
+
+  - name: "init-on-error"
+    description: >
+      New(&Config{OnError: fn}) asigna correctamente el callback OnError.
+      El engine sigue sin notifiers registrados.
+    fields:
+      config: "&Config{OnError: func(err error) {}}"
+    checks:
+      - hasOnError(true)
+      - hasNotifiers(0)
+
+---
+# Engine.Register — spec separado en el mismo archivo o en engine_register.testspec.yaml
+
+version: "1"
+package: ./engine
+function: Engine.Register
+
+context:
+  subject_init: "e := New(tt.config)"
+  shared_setup: >
+    Registrar cada notifier de tt.notifiers vía e.Register(n) antes de los checks.
+
+table_fields:
+  - name: config
+    type: "*Config"
+    role: input
+    doc: nil en todos los casos (Register no depende de Config).
+  - name: notifiers
+    type: "[]model.Notifier"
+    role: input
+    doc: Notifiers a registrar. La cantidad esperada se verifica con hasNotifiers.
+
+check_types:
+  - id: engine_check
+    type_name: engineTestCheckFn
+    signature: "func(*testing.T, *Engine)"
+    composer: checkEngine
+    description: Valida el estado del *Engine después de Register().
+
+checks:
+  - id: hasNotifiers
+    for_type: engine_check
+    scope: global
+    signature: "hasNotifiers(count int) engineTestCheckFn"
+    when: Verificar la cantidad de notifiers en e.notifiers después de Register().
+    params:
+      - name: count
+        type: int
+        doc: Cantidad esperada.
+
+cases:
+  - name: "one-notifier"
+    description: >
+      Registrar un solo notifier. e.notifiers debe tener exactamente 1 entrada.
+    fields:
+      notifiers: |
+        []model.Notifier{
+          webhook.New(&webhook.Config{}),
+        }
+    checks:
+      - hasNotifiers(1)
+
+  - name: "two-notifiers"
+    description: >
+      Registrar dos notifiers distintos. e.notifiers debe tener exactamente 2 entradas.
+    fields:
+      notifiers: |
+        []model.Notifier{
+          webhook.New(&webhook.Config{}),
+          amqp.New(&amqp.Config{}),
+        }
+    checks:
+      - hasNotifiers(2)

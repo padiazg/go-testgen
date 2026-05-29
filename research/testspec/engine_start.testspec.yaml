@@ -1,0 +1,86 @@
+version: "1"
+package: ./engine
+function: Engine.Start
+
+# Engine.Start() — inicia todos los notifiers registrados llamando Connect() en cada uno.
+# Los errores de Connect() se reportan vía Config.OnError (registerError).
+# El test body registra notifiers, llama Start(), espera, llama Stop(), y verifica errores.
+
+context:
+  subject_init: |
+    c := &Config{OnError: registerError}
+    e := New(c)
+  shared_setup: >
+    Llamar clearErrors() antes de cada caso.
+    Registrar cada notifier de tt.notifiers vía e.Register(n).
+    Llamar e.Start(), time.Sleep(250ms), e.Stop(), time.Sleep(250ms).
+
+package_state:
+  - name: errors
+    type: "[]error"
+    clear_between_cases: true
+    description: >
+      Acumula errores reportados por el callback OnError=registerError.
+      Se verifica con hasErrors().
+
+table_fields:
+  - name: notifiers
+    type: "[]model.Notifier"
+    role: input
+    doc: >
+      Notifiers a registrar. DummyNotifier.Config.ConnectError controla
+      si Connect() falla o no.
+
+check_types:
+  - id: engine_check
+    type_name: engineTestCheckFn
+    signature: "func(*testing.T, *Engine)"
+    composer: checkEngine
+    description: Valida el estado del engine después de Start()/Stop().
+
+checks:
+  - id: hasErrors
+    for_type: engine_check
+    scope: global
+    signature: "hasErrors(has bool) engineTestCheckFn"
+    when: >
+      Verificar si la variable de package `errors` tiene entradas.
+      Usar has=true cuando algún notifier falla en Connect().
+      Usar has=false cuando todos conectan correctamente.
+    params:
+      - name: has
+        type: bool
+        doc: "true = espera al menos un error en `errors`; false = espera slice vacío"
+
+cases:
+  - name: "connect-error"
+    description: >
+      Un notifier con ConnectError configurado falla al conectar.
+      Engine.Start() debe reportar ese error vía OnError sin paniquear
+      ni impedir que otros notifiers continúen.
+    fields:
+      notifiers: |
+        []model.Notifier{
+          &dummy.DummyNotifier{
+            Config: &dummy.Config{
+              Name:         "dummy-01",
+              ConnectError: fmt.Errorf("connecting"),
+            },
+          },
+        }
+    checks:
+      - hasErrors(true)
+
+  - name: "success"
+    description: >
+      Un notifier sin ConnectError conecta correctamente.
+      Engine.Start() no debe producir ningún error.
+    fields:
+      notifiers: |
+        []model.Notifier{
+          &dummy.DummyNotifier{
+            Config: &dummy.Config{Name: "dummy-01"},
+          },
+        }
+    checks:
+      - hasErrors(false)

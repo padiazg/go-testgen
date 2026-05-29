@@ -1,0 +1,67 @@
+version: "1"
+package: ./connector/dummy
+function: DummyNotifier.Exists
+
+# DummyNotifier.Exists(n *model.Notification) bool
+# Busca una notificación en d.in por referencia (reflect.DeepEqual).
+# El before en el test original tiene firma: func(d *DummyNotifier) *model.Notification
+# — prepara el estado de d.in y retorna la notificación a buscar.
+
+context:
+  subject_init: "d := New(&Config{})"
+
+check_types:
+  - id: basic
+    type_name: ""
+    signature: ""
+    composer: ""
+    description: >
+      Este test NO usa closure checks — usa wantErr bool convencional
+      comparado con el resultado de d.Exists(n).
+      El patrón se describe aquí para que la IA genere el test body correcto.
+
+table_fields:
+  - name: before
+    type: "func(d *DummyNotifier) *model.Notification"
+    role: state
+    doc: >
+      Prepara el estado interno de d y retorna la notificación que
+      se pasará a Exists(). La firma retorna *model.Notification
+      porque el valor de búsqueda depende del setup.
+  - name: want
+    type: bool
+    role: gate
+    doc: Resultado esperado de d.Exists(n).
+
+cases:
+  - name: "found"
+    description: >
+      La notificación está en d.in (insertada manualmente con lock).
+      Exists() debe retornar true.
+    fields:
+      want: "true"
+    before:
+      description: >
+        Crear una *model.Notification con ID="payload-01", Event="test", Data=nil.
+        Adquirir d.lock, agregar la notificación a d.in, liberar lock.
+        Retornar la misma notificación para que el test la pase a Exists().
+      mechanism: state-mutation
+      returns:
+        type: "*model.Notification"
+        used_as: "argumento n pasado a d.Exists(n) en el test body"
+
+  - name: "not-found"
+    description: >
+      La notificación NO está en d.in — d.in está vacío.
+      Exists() debe retornar false.
+    fields:
+      want: "false"
+    before:
+      description: >
+        Crear una *model.Notification con ID="payload-01", Event="test", Data=nil
+        pero NO agregarla a d.in. Retornar la notificación para que el test
+        la pase a Exists() y se verifique que no se encuentra.
+      mechanism: state-mutation
+      returns:
+        type: "*model.Notification"
+        used_as: "argumento n pasado a d.Exists(n) en el test body"

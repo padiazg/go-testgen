@@ -10,7 +10,8 @@ type FuncInfo struct {
 	Receiver      *ReceiverInfo
 	Doc           string
 	FactoryFunc   string      // factory function name for methods (e.g., "NewClient")
-	FactoryParams []ParamInfo // factory function parameters (captured for proper instantiation)
+	FactoryParams       []ParamInfo // factory function parameters (captured for proper instantiation)
+	FactoryReturnsError bool        // whether the factory function returns an error
 	ImportPath    string
 	Name          string
 	Package       string

@@ -63,7 +63,11 @@ func (g *SimpleGenerator) generateSimpleTest(buf *bytes.Buffer, info *analyzer.F
 
 	if constructor {
 		resultVarName := strings.ToLower(info.Results[0].TypeName[1:])
-		actBlock = fmt.Sprintf("%s := New(%s)", resultVarName, callArgs)
+		if info.HasError {
+			actBlock = fmt.Sprintf("%s, err := New(%s)", resultVarName, callArgs)
+		} else {
+			actBlock = fmt.Sprintf("%s := New(%s)", resultVarName, callArgs)
+		}
 		assertBlock = g.buildAssertBlock(info, resultVarName)
 	} else if info.IsMethod {
 		arrangeLine = buildReceiverInit(info, recvVar)
