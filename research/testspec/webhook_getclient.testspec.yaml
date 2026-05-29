@@ -1,0 +1,100 @@
+version: "1"
+package: ./connector/webhook
+function: WebhookNotifier.getClient
+
+# WebhookNotifier.getClient() HTTPClient
+# Método privado que retorna n.client si ya está seteado,
+# o construye un nuevo *http.Client (con o sin TLS insecuro) si es nil.
+
+context:
+  subject_init: "n := New(tt.config)"
+  shared_setup: >
+    Los checks locales checkClientType y checkClientInsecure se definen
+    usando reflect para comparar tipos en runtime, capturando el tipo
+    del cliente actual de n.
+
+table_fields:
+  - name: config
+    type: "*Config"
+    role: input
+    doc: Config del WebhookNotifier. nil usa defaults. Config.Insecure controla TLS.
+  - name: before
+    type: "func(*WebhookNotifier)"
+    role: state
+    doc: Setup del estado interno antes de llamar getClient().
+
+check_types:
+  - id: notifier_check
+    type_name: TestCheckNotifierFn
+    signature: "func(*testing.T, model.Notifier)"
+    composer: CheckNotifier
+    package: github.com/padiazg/notifier/model
+    description: Valida el estado del WebhookNotifier después de getClient().
+
+checks:
+  - id: checkClientType
+    for_type: notifier_check
+    scope: local
+    signature: "checkClientType(clientType interface{}) model.TestCheckNotifierFn"
+    when: >
+      Validar que n.client es del tipo esperado.
+      Comparar con reflect.TypeOf(clientType) vs reflect.TypeOf(n.client).
+    params:
+      - name: clientType
+        type: "interface{}"
+        doc: >
+          Valor del tipo esperado. Pasar un zero-value del tipo:
+          &mockHTTPClient{} para mock, &http.Client{} para el cliente real.
+    captures: []
+
+  - id: checkClientInsecure
+    for_type: notifier_check
+    scope: local
+    signature: "checkClientInsecure(want bool) model.TestCheckNotifierFn"
+    when: >
+      Validar n.client.(*http.Client).Transport.(*http.Transport).TLSClientConfig.InsecureSkipVerify.
+      Solo aplicar cuando checkClientType(&http.Client{}) también está presente.
+      Si el transport no es *http.Transport, InsecureSkipVerify se asume false.
+    params:
+      - name: want
+        type: bool
+        doc: "true = espera TLS insecure; false = espera TLS seguro (default)"
+
+cases:
+  - name: "existing-client"
+    description: >
+      Si n.client ya está asignado (un mock), getClient() debe retornarlo tal cual
+      sin construir uno nuevo. El tipo debe seguir siendo *mockHTTPClient.
+    before:
+      description: >
+        Asignar n.client = &mockHTTPClient{} antes de llamar getClient().
+      mechanism: field-injection
+    checks:
+      - checkClientType(&mockHTTPClient{})
+
+  - name: "empty-client"
+    description: >
+      Si n.client es nil, getClient() construye un *http.Client estándar
+      sin configuración TLS especial (InsecureSkipVerify=false).
+    before:
+      description: >
+        Forzar n.client = nil para asegurar que getClient() construya uno nuevo.
+      mechanism: field-reset
+    checks:
+      - checkClientType(&http.Client{})
+      - checkClientInsecure(false)
+
+  - name: "insecure-client"
+    description: >
+      Con Config.Insecure=true, getClient() construye un *http.Client con
+      TLSClientConfig.InsecureSkipVerify=true.
+    fields:
+      config: "&Config{Insecure: true}"
+    before:
+      description: >
+        Forzar n.client = nil para que getClient() construya el cliente
+        respetando Config.Insecure.
+      mechanism: field-reset
+    checks:
+      - checkClientType(&http.Client{})
+      - checkClientInsecure(true)

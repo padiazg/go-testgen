@@ -149,7 +149,7 @@ func generateTestTable(buf *bytes.Buffer, checkTypeName, checkVarName string, in
 	recvVar := receiverVar(info)
 	constructor := isConstructor(info)
 
-	hasResultVars := constructor || (info.IsMethod && info.Receiver != nil) || info.HasError || (len(info.Results) > 0 && !info.Results[0].IsError)
+	hasResultVars := constructor || (info.IsMethod && info.Receiver != nil) || info.HasError || info.HasNonErrorResults()
 
 	tableFields := buildTableFields(info, "checks []"+checkTypeName)
 	fieldList := strings.Join(tableFields, "\n\t")
@@ -166,8 +166,12 @@ func generateTestTable(buf *bytes.Buffer, checkTypeName, checkVarName string, in
 	switch {
 	case constructor:
 		resultVarName := strings.ToLower(info.Results[0].TypeName[1:])
-		setupLines = append(setupLines, fmt.Sprintf("%s := New(%s)", resultVarName, "tt."+info.Params[0].Name))
 		resultVars = resultVarName
+		if info.HasError {
+			resultVars = strings.Join(buildReturnVars(info.Results, cfg.ResultVarName, cfg.ErrorVarName), ", ")
+		}
+
+		setupLines = append(setupLines, fmt.Sprintf("%s := New(%s)", resultVars, "tt."+info.Params[0].Name))
 
 	case info.IsMethod:
 		setupLines = append(setupLines, buildReceiverInit(info, recvVar))

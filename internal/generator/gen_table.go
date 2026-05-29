@@ -55,7 +55,7 @@ func (g *TableGenerator) generateTableTest(buf *bytes.Buffer, info *analyzer.Fun
 	tfName := testFuncName(info)
 
 	// Determine want fields and assertion logic based on return values.
-	wantFields, assertBlock := g.buildWantFieldsAndAssert(info)
+	wantFields, assertBlock := g.buildWantFieldsAndAssert(info, constructor)
 
 	tableFields := buildTableFields(info, wantFields...)
 	fieldList := strings.Join(tableFields, "\n\t\t")
@@ -67,7 +67,12 @@ func (g *TableGenerator) generateTableTest(buf *bytes.Buffer, info *analyzer.Fun
 
 	if constructor {
 		resultVarName := strings.ToLower(info.Results[0].TypeName[1:])
-		setupLines = append(setupLines, fmt.Sprintf("%s := New(%s)", resultVarName, "tt."+info.Params[0].Name))
+		if info.HasError {
+			returnVars := buildReturnVars(info.Results, g.cfg.ResultVarName, g.cfg.ErrorVarName)
+			setupLines = append(setupLines, fmt.Sprintf("%s := New(%s)", strings.Join(returnVars, ", "), "tt."+info.Params[0].Name))
+		} else {
+			setupLines = append(setupLines, fmt.Sprintf("%s := New(%s)", resultVarName, "tt."+info.Params[0].Name))
+		}
 	} else if info.IsMethod {
 		setupLines = append(setupLines, buildReceiverInit(info, recvVar))
 		if len(info.Params) > 0 {
@@ -109,9 +114,14 @@ func (g *TableGenerator) generateTableTest(buf *bytes.Buffer, info *analyzer.Fun
 }
 
 // buildWantFieldsAndAssert returns the extra struct fields for want values and the assertion code.
-func (g *TableGenerator) buildWantFieldsAndAssert(info *analyzer.FuncInfo) (fields []string, assertBlock string) {
+func (g *TableGenerator) buildWantFieldsAndAssert(info *analyzer.FuncInfo, constructor bool) (fields []string, assertBlock string) {
 	cfg := g.cfg
 	resultVarName := cfg.ResultVarName
+
+	// For constructors that return error, add wantErr field.
+	if constructor && info.HasError {
+		fields = append(fields, "wantErr string")
+	}
 	errVarName := cfg.ErrorVarName
 
 	var nonErrResults []analyzer.ResultInfo
@@ -151,7 +161,7 @@ func (g *TableGenerator) buildWantFieldsAndAssert(info *analyzer.FuncInfo) (fiel
 				fields = append(fields, fmt.Sprintf("want%d %s", i+1, wantType))
 			}
 		}
-		if info.HasError {
+		if info.HasError && !constructor {
 			fields = append(fields, "wantErr string")
 		}
 

@@ -298,6 +298,9 @@ func buildReceiverInit(info *analyzer.FuncInfo, varName string) string {
 			args = append(args, placeholderValue(p.TypeName))
 		}
 		argList := strings.Join(args, ", ")
+		if info.FactoryReturnsError {
+			return fmt.Sprintf("%s, err := %s(%s)", varName, info.FactoryFunc, argList)
+		}
 		return fmt.Sprintf("%s := %s(%s)", varName, info.FactoryFunc, argList)
 	}
 	if info.Receiver.IsPointer {

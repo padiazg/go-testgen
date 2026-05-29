@@ -92,7 +92,7 @@ func analyzerGetFn(info *FuncInfo, pkg *packages.Package) *ast.FuncDecl {
 				info.Receiver.IsPointer = isPointer
 
 				// Find factory function for this receiver type
-				info.FactoryFunc, info.FactoryParams = findFactoryFunc(pkg, recvType)
+				info.FactoryFunc, info.FactoryParams, info.FactoryReturnsError = findFactoryFunc(pkg, recvType)
 			case fn.Recv != nil:
 				continue
 			}
@@ -526,9 +526,9 @@ func Getwd() (string, error) {
 // findFactoryFunc searches for a factory function that returns *receiverType.
 // It looks for functions starting with "New" that return a pointer to the receiver type.
 // Returns the function name and its parameters.
-func findFactoryFunc(pkg *packages.Package, receiverType string) (string, []ParamInfo) {
+func findFactoryFunc(pkg *packages.Package, receiverType string) (string, []ParamInfo, bool) {
 	if pkg.Syntax == nil {
-		return "", nil
+		return "", nil, false
 	}
 
 	for _, syn := range pkg.Syntax {
@@ -567,9 +567,15 @@ func findFactoryFunc(pkg *packages.Package, receiverType string) (string, []Para
 						}
 					}
 				}
-				return fn.Name.Name, factoryParams
+				// Check if factory returns error as second return value
+				returnsError := false
+				if fn.Type.Results != nil && len(fn.Type.Results.List) >= 2 {
+					secondType := typeExprToString(fn.Type.Results.List[1].Type)
+					returnsError = secondType == "error"
+				}
+				return fn.Name.Name, factoryParams, returnsError
 			}
 		}
 	}
-	return "", nil
+	return "", nil, false
 }
