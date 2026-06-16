@@ -1,8 +1,28 @@
 # Adding Test Cases
 
-go-testgen generates placeholder `TODO` cases. This page explains how to turn them into real tests — either manually or using `gen-cases` to materialize cases from a `.testspec.yaml` spec.
+go-testgen generates placeholder `TODO` cases. Three ways to turn them into real tests, from most to least automated:
 
-## Option A: Use `gen-cases` (spec-driven)
+## Option A: Use AI agent skills (recommended)
+
+Install the go-testgen AI agent skills and let your coding assistant fill in the cases directly from the source code:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/padiazg/go-testgen/main/scripts/install.sh | bash
+```
+
+Then prompt:
+
+```
+Read skills/closure-check-tests/SKILL.md and skills/gen-test-cases/SKILL.md.
+Read [source file] and [_test.go].
+Generate test cases for TestXxx_Yyy.
+```
+
+The AI reads the source code and scaffolding, then fills in the test table — no `.testspec.yaml` needed.
+
+---
+
+## Option B: Use `gen-cases` (spec-driven)
 
 !!! note "Experimental"
     The `gen-cases` workflow is experimental. See the [command reference](../commands/gen-cases.md) for details.
