@@ -5,6 +5,20 @@ All notable changes to go-testgen will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.2.1 - 2026-06-16
+
+### Added
+
+- `--mock-from` now accepts full import paths (e.g. `io.Writer`, `net/http.Handler`, `github.com/x/y.Iface`) — the interface is loaded directly without resolving through consuming package imports
+- Standalone mock mode — `go-testgen gen --mock-from <spec> --pkg <name> --output <file>` generates mocks without a consuming package (stdlib and external interfaces)
+- `--pkg` flag — package name for generated mock files (required in standalone mode)
+- Single-segment qualifier fallback — `--mock-from "io.Writer"` retries as direct import path when `io` isn't imported by the consuming file
+
+### Changed
+
+- `gen` command now accepts zero positional args when `--mock-from` is present (standalone mode)
+- `--mock-from` help text documents all 4 spec formats
+
 ## v0.1.5 - [unreleased]
 
 ### Added

@@ -1,11 +1,12 @@
 # `gen` — Generate Test Scaffolding
 
-`gen` analyzes a function or method and produces a complete test scaffold.
+`gen` analyzes a function or method and produces a complete test scaffold. It can also generate mocks standalone without a consuming package.
 
 ## Syntax
 
 ```bash
-go-testgen gen <pkg-pattern> <FuncSpec> [flags]
+go-testgen gen <pkg-pattern> <FuncSpec> [flags]                          # normal mode
+go-testgen gen --mock-from <spec> --pkg <name> --output <path> [flags]   # standalone mode
 ```
 
 `pkg-pattern` is the Go package path (e.g., `./internal/core/services/user`, `github.com/acme/app/pkg/auth`).
@@ -44,17 +45,24 @@ go-testgen gen ./internal/core/services/order Service.PlaceOrder \
 go-testgen gen ./internal/core/services/user Service.CreateUser \
   --style table
 go-testgen gen ./pkg/utils Sanitize --style simple
+
+# Standalone: generate mocks for stdlib/external interfaces
+go-testgen gen --mock-from "io.Writer" --pkg mypkg -o -
+go-testgen gen --mock-from "io.Writer" --mock-from "io.Reader" \
+  --pkg mypkg --output ./mocks/
+go-testgen gen --mock-from "net/http.Handler" --pkg mypkg -o -
 ```
 
 ## Flags
 
 | Flag | Default | Description |
 | - | - | - |
-| `-o`, `--output` | auto | Output file. Omit to auto-detect (`<source>_test.go`). Use `-` for stdout (preview). |
+| `-o`, `--output` | auto | Output file. Omit to auto-detect (`<source>_test.go`). Use `-` for stdout (preview). Required in standalone mode. |
 | `-v`, `--verbose` | false | Print parsed `FuncInfo` JSON to stderr before generating. |
 | `--style` | from config / `check` | Test style: `check`, `table`, or `simple`. Overrides `test_style` in config. |
 | `--config` | auto | Path to `.go-testgen.yaml` config file. |
-| `--mock-from` | — | Generate a testify mock (repeatable). Format: `qualifier.InterfaceName` for cross-package, `.InterfaceName` for same-package, or bare `InterfaceName` (same package). |
+| `--pkg` | — | Package name for generated mock files. Required in standalone mode. |
+| `--mock-from` | — | Generate a testify mock (repeatable). Formats: `qualifier.IfaceName` for cross-package, `path/to.IfaceName` for full import path (e.g. `io/fs.FS`), `.IfaceName` for same-package, or bare `IfaceName` (same package). |
 
 ## Output Files
 
@@ -67,6 +75,25 @@ Mock files are written to `mock_<interfacename>_test.go` in the same directory.
 If the target `_test.go` already exists but does not contain the test function, go-testgen **appends** the new test and injects any missing imports. It never overwrites an existing test function.
 
 If the target `_test.go` exists **and** the test function already exists, go-testgen prompts for overwrite (Spanish: [S]obrescribir / [C]ancelar).
+
+## Standalone Mode
+
+When no positional args are provided but `--mock-from` is present, go-testgen enters standalone
+mock mode. This is useful for generating mocks for stdlib interfaces (`io.Writer`, `net/http.Handler`)
+or interfaces from external modules without needing a consuming package in scope.
+
+```bash
+go-testgen gen --mock-from "io.Writer" --pkg mypkg --output ./
+```
+
+Required in standalone mode:
+| Flag | Description |
+| `-o`, `--output` | Output file or directory |
+| `--pkg` | Package name for generated files |
+
+The `--mock-from` spec supports full import paths (containing `/`) and single-segment stdlib names.
+When the spec contains `/`, it is resolved directly. When it does not (e.g. `io.Writer`),
+go-testgen falls back to treating the qualifier as a direct import path.
 
 ## Factory Function Instantiation
 

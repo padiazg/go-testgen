@@ -4,7 +4,7 @@ go-testgen generates testify mocks for Go interfaces. This page explains when to
 
 ## When Mocks Are Generated
 
-Pass `--mock-from` to `gen`. Three formats are supported:
+Pass `--mock-from` to `gen`. Four formats are supported:
 
 ### Cross-package interface
 
@@ -12,6 +12,29 @@ Pass `--mock-from` to `gen`. Three formats are supported:
 go-testgen gen ./internal/core/services/user Service.CreateUser \
   --mock-from userDomain.UserRepository
 ```
+
+### Full import path (external or stdlib)
+
+```bash
+go-testgen gen --mock-from "io.Writer" --pkg mypkg -o -
+go-testgen gen --mock-from "io/fs.FS" --pkg mypkg --output ./mocks/
+go-testgen gen --mock-from "net/http.Handler" --pkg mypkg -o -
+go-testgen gen --mock-from "github.com/foo/bar.Doer" --pkg mypkg -o ./
+```
+
+When the prefix before the last `.` contains `/`, it is treated as a full import path. The interface is loaded directly from that package without resolving through consuming package imports. This works for stdlib, external modules, and in standalone mode.
+
+### Standalone mock mode
+
+When no positional args are provided but `--mock-from` is present, go-testgen generates mocks without a consuming package:
+
+```bash
+go-testgen gen --mock-from "io.Writer" --pkg mypkg --output ./
+go-testgen gen --mock-from "io.Writer" --mock-from "io.Reader" \
+  --pkg mypkg --output ./mocks/
+```
+
+In standalone mode `--pkg` and `--output` are required.
 
 ### Same-package interface (dot prefix)
 
