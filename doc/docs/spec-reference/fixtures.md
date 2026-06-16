@@ -1,5 +1,9 @@
 # Fixtures
 
+!!! warning "Experimental"
+    `gen-cases` and `.testspec.yaml` are experimental — an exploration of the approach. Schema, API, and behavior may change. Feedback welcome.
+    Alternatively, install the [AI agent skills](../getting-started/installation.md#ai-agent-skills) and let an AI generate cases directly from source code — no spec file required.
+
 Fixtures are **shared data values** declared once at file scope, before the `TestXxx` function. They represent payloads, protocol constants, or any reusable Go value that multiple test cases reference.
 
 ## Schema

@@ -1,5 +1,9 @@
 # `before` and `after` Patterns
 
+!!! warning "Experimental"
+    `gen-cases` and `.testspec.yaml` are experimental — an exploration of the approach. Schema, API, and behavior may change. Feedback welcome.
+    Alternatively, install the [AI agent skills](../getting-started/installation.md#ai-agent-skills) and let an AI generate cases directly from source code — no spec file required.
+
 `before` and `after` describe the setup and teardown of each test case. Their concrete implementation varies widely depending on the subject under test. The spec captures the **intent** in natural language and a **mechanism** keyword; `gen-cases` generates a typed stub with `// ai-hint:` comments; an AI completes the body.
 
 ---

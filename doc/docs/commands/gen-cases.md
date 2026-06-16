@@ -2,10 +2,10 @@
 
 `gen-cases` reads a `.testspec.yaml` file and inserts the described test case entries into the `tests` slice of an existing `_test.go`. The test scaffolding must already exist — run [`gen`](gen.md) first.
 
-Alternatively, install the [AI agent skills](../getting-started/installation.md#ai-agent-skills) and let an AI generate cases directly from source code — no spec file required.
 
 !!! warning "Experimental"
     This command is experimental. See the [Spec Reference](../spec-reference/index.md) for format details and limitations.
+    Alternatively, install the [AI agent skills](../getting-started/installation.md#ai-agent-skills) and let an AI generate cases directly from source code — no spec file required.
 
 ## Syntax
 

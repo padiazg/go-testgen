@@ -2,6 +2,7 @@
 
 !!! warning "Experimental"
     `gen-cases` and `.testspec.yaml` are experimental — an exploration of the approach. Schema, API, and behavior may change. Feedback welcome.
+    Alternatively, install the [AI agent skills](../getting-started/installation.md#ai-agent-skills) and let an AI generate cases directly from source code — no spec file required.
 
 A `.testspec.yaml` file describes **what to test** in domain terms, without writing Go code. `go-testgen gen-cases` reads it and materializes the described cases into the `tests` slice of an existing `_test.go`.
 

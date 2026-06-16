@@ -1,5 +1,9 @@
 # `context` and `package_state`
 
+!!! warning "Experimental"
+    `gen-cases` and `.testspec.yaml` are experimental — an exploration of the approach. Schema, API, and behavior may change. Feedback welcome.
+    Alternatively, install the [AI agent skills](../getting-started/installation.md#ai-agent-skills) and let an AI generate cases directly from source code — no spec file required.
+
 These sections describe the **test body infrastructure** — how the subject under test is constructed and what shared variables the test runner needs. They are informational: `gen-cases` does not modify the test body, but an AI agent reads these sections to understand the setup when filling in `before` stubs.
 
 ## `context`

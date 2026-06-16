@@ -1,5 +1,9 @@
 # Check Types and Checks
 
+!!! warning "Experimental"
+    `gen-cases` and `.testspec.yaml` are experimental — an exploration of the approach. Schema, API, and behavior may change. Feedback welcome.
+    Alternatively, install the [AI agent skills](../getting-started/installation.md#ai-agent-skills) and let an AI generate cases directly from source code — no spec file required.
+
 These two sections form the **assertion vocabulary** of a spec. `check_types` declares the function types used for assertions; `checks` catalogues the individual assertion functions.
 
 ---

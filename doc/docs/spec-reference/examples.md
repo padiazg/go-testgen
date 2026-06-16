@@ -1,5 +1,9 @@
 # Complete Examples
 
+!!! warning "Experimental"
+    `gen-cases` and `.testspec.yaml` are experimental — an exploration of the approach. Schema, API, and behavior may change. Feedback welcome.
+    Alternatively, install the [AI agent skills](../getting-started/installation.md#ai-agent-skills) and let an AI generate cases directly from source code — no spec file required.
+
 Three worked examples covering the most common patterns: global checks with package state, cross-package check types, and state-mutation with a returning `before`.
 
 ---

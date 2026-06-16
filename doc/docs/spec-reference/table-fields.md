@@ -1,5 +1,9 @@
 # Table Fields
 
+!!! warning "Experimental"
+    `gen-cases` and `.testspec.yaml` are experimental — an exploration of the approach. Schema, API, and behavior may change. Feedback welcome.
+    Alternatively, install the [AI agent skills](../getting-started/installation.md#ai-agent-skills) and let an AI generate cases directly from source code — no spec file required.
+
 `table_fields` declares the columns in the anonymous test struct beyond the standard `name`, `before`, `after`, and `checks` fields. Each field has a **role** that controls how `gen-cases` uses its value when generating a case entry.
 
 ## Schema

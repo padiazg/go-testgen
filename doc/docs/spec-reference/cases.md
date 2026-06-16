@@ -1,5 +1,9 @@
 # Cases
 
+!!! warning "Experimental"
+    `gen-cases` and `.testspec.yaml` are experimental — an exploration of the approach. Schema, API, and behavior may change. Feedback welcome.
+    Alternatively, install the [AI agent skills](../getting-started/installation.md#ai-agent-skills) and let an AI generate cases directly from source code — no spec file required.
+
 `cases` is the primary content of a spec. Each entry describes one scenario and produces one struct literal in the `tests` slice.
 
 ## Schema
