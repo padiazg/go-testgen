@@ -4,6 +4,8 @@ Copyright © 2026 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"errors"
+
 	"github.com/padiazg/go-testgen/internal/gencases"
 	"github.com/padiazg/go-testgen/internal/spec"
 	"github.com/spf13/cobra"
@@ -18,7 +20,7 @@ var (
 
 	genCasesCmd = &cobra.Command{
 		Use:   "gen-cases <spec-file>",
-		Short: "Materialize test cases from a .testspec.yaml into a _test.go file",
+		Short: "[EXPERIMENTAL!] Materialize test cases from a .testspec.yaml into a _test.go file",
 		Args:  cobra.ExactArgs(1),
 		RunE:  runGenCases,
 	}
@@ -34,6 +36,10 @@ func init() {
 }
 
 func runGenCases(cmd *cobra.Command, args []string) error {
+	if !cmd.Parent().Flags().Changed("experimental") {
+		return errors.New("gen-cases is experimental: re-run with --experimental flag")
+	}
+
 	s, err := spec.ParseFile(args[0])
 	if err != nil {
 		return err

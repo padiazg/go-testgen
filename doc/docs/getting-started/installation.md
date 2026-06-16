@@ -47,6 +47,16 @@ make install  # installs to $GOPATH/bin
 go-testgen version
 ```
 
+## AI Agent Skills
+
+Install go-testgen AI agent skills to guide coding assistants in generating test cases:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/padiazg/go-testgen/main/scripts/install.sh | bash
+```
+
+Installs `closure-check-tests` and `gen-test-cases` skills into `~/.agents/skills/`. See [AI Agent Skills](../../README.md#ai-agent-skills) for usage details.
+
 ## Optional: Project Configuration File
 
 Create `.go-testgen.yaml` in your project root to control generation behavior. See [Configuration](../configuration/index.md) for all options.

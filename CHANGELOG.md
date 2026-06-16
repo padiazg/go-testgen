@@ -5,27 +5,25 @@ All notable changes to go-testgen will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## v0.1.5 - [unreleased]
+## v0.1.4 - [unreleased]
 
 ### Added
 
-- `gen-cases` command — reads a `.testspec.yaml` and materializes test case entries into an existing `_test.go`
+- AI agent skills — `skills/` directory promoted to root with `<name>/SKILL.md` structure for OpenCode, Claude Code, Cursor, Codex, Gemini compatibility
+- `scripts/install.sh` — `curl | bash` installer for AI agent skills
+- `README.md` — AI Agent Skills section updated with `curl | bash` install command
+- Fixed-size array parameter detection — `[N]T` params now correctly identified in analyzer
+- `HasArrayResult` flag on `FuncSummary` and `ScanResult` for array return type detection
+- `SuggestStyle` now recommends `check` style for functions returning arrays (like slices)
+- `gen-cases` experimental command — reads a `.testspec.yaml` and materializes test case entries into an existing `_test.go`
   - Inserts struct literal entries into the `tests` slice with correct field values from the spec
   - Generates `before`/`after` function stubs with signature inferred from the existing AST
   - Emits `// ai-hint:` comments so a generative AI can complete concrete values
   - Idempotent: skips entries that already exist by name; `--force` replaces them
   - `--dry-run` previews output without writing; `--no-hints` omits ai-hint comments; `--verbose` prints a generation summary
   - Resolves target `_test.go` automatically from package + function name (override with `--output`)
-- `internal/spec` package — YAML types and `ParseFile()` for `.testspec.yaml` format
-- `internal/gencases` package — AST-based analysis + text-based insertion pipeline
-
-## v0.1.4 - [unreleased]
-
-### Added
-
-- Fixed-size array parameter detection — `[N]T` params now correctly identified in analyzer
-- `HasArrayResult` flag on `FuncSummary` and `ScanResult` for array return type detection
-- `SuggestStyle` now recommends `check` style for functions returning arrays (like slices)
+  - `internal/spec` package — YAML types and `ParseFile()` for `.testspec.yaml` format
+  - `internal/gencases` package — AST-based analysis + text-based insertion pipeline
 
 ### Fixed
 

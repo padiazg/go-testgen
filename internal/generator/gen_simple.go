@@ -35,7 +35,9 @@ func (g *SimpleGenerator) Generate(req GenerateRequest) (*GenerateResult, error)
 	var buf bytes.Buffer
 
 	if !req.IsMerge {
-		buf.WriteString("package " + info.Package + "\n\n")
+		buf.WriteString("package ")
+		buf.WriteString(info.Package)
+		buf.WriteString("\n\n")
 		buf.WriteString(generateImports(info))
 	}
 
