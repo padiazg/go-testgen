@@ -2,6 +2,9 @@
 
 `gen-cases` reads a `.testspec.yaml` file and inserts the described test case entries into the `tests` slice of an existing `_test.go`. The test scaffolding must already exist — run [`gen`](gen.md) first.
 
+!!! warning "Experimental"
+    This command is experimental. See the [Spec Reference](../spec-reference/index.md) for format details and limitations.
+
 ## Syntax
 
 ```bash

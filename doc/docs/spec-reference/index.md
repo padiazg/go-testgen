@@ -1,5 +1,8 @@
 # `.testspec.yaml` — Spec Reference
 
+!!! warning "Experimental"
+    `gen-cases` and `.testspec.yaml` are experimental — an exploration of the approach. Schema, API, and behavior may change. Feedback welcome.
+
 A `.testspec.yaml` file describes **what to test** in domain terms, without writing Go code. `go-testgen gen-cases` reads it and materializes the described cases into the `tests` slice of an existing `_test.go`.
 
 ## Design Principle
