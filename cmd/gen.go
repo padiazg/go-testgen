@@ -22,6 +22,13 @@ type mockSource struct {
 	source    []byte
 }
 
+// mockSpec holds the parsed components of a --mock-from value.
+type mockSpec struct {
+	qualifier  string // local alias (e.g., "userDomain") — empty for direct path mode
+	ifaceName  string // e.g., "Writer", "Handler"
+	importPath string // full import path when specified (e.g., "io/fs", "net/http") — empty for qualifier mode
+}
+
 // genCmd represents the gen command
 var (
 	configFlag    string
@@ -29,12 +36,30 @@ var (
 	verboseFlag   bool
 	styleFlag     string
 	mockFromFlags []string
+	pkgFlag       string
 
 	genCmd = &cobra.Command{
-		Use:   "gen <./pkg/path> <FuncSpec>",
+		Use:   "gen [<./pkg/path> <FuncSpec>]",
 		Short: "Generates test scaffolding for a function or method",
-		Args:  cobra.ExactArgs(2),
-		RunE:  runGen,
+		Long: `Generates test scaffolding for a function or method.
+
+Normal mode (2 args): gen <./pkg/path> <FuncSpec>
+Standalone mock mode (0 args): gen --mock-from <spec> --pkg <name> --output <file|->
+
+In standalone mode, --pkg and --output are required.`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 2 {
+				return nil
+			}
+			if len(args) == 0 && len(mockFromFlags) > 0 {
+				return nil
+			}
+			if len(mockFromFlags) > 0 {
+				return fmt.Errorf("standalone mock mode requires 0 positional args, got %d", len(args))
+			}
+			return fmt.Errorf("requires exactly 2 args (<pkg/path> <FuncSpec>) or 0 args with --mock-from")
+		},
+		RunE: runGen,
 	}
 )
 
@@ -44,11 +69,23 @@ func init() {
 	genCmd.Flags().BoolVarP(&verboseFlag, "verbose", "v", false, "show parsed FuncInfo")
 	genCmd.Flags().StringVar(&configFlag, "config", "", "path to .go-testgen.yaml config file")
 	genCmd.Flags().StringVar(&styleFlag, "style", "", "test generation style: check, table, simple (default: from config or check)")
-	genCmd.Flags().StringSliceVar(&mockFromFlags, "mock-from", nil, "generate mock for interface (format: qualifier.InterfaceName or .InterfaceName for same package, repeatable)")
+	genCmd.Flags().StringSliceVar(&mockFromFlags, "mock-from", nil,
+		`generate mock for interface (repeatable). Formats:
+  qualifier.Interface   — resolve via consuming package imports
+  .Interface            — same package
+  io/fs.FS              — full import path (stdlib or external)
+  github.com/x/y.Iface  — full import path (module)
+Can be used without positional args (standalone mode) with --pkg and --output.`)
+	genCmd.Flags().StringVar(&pkgFlag, "pkg", "", "package name for generated mock files (required in standalone mode)")
 
 }
 
 func runGen(cmd *cobra.Command, args []string) error {
+	// Standalone mock mode: no positional args, just --mock-from.
+	if len(args) == 0 {
+		return runStandaloneMocks()
+	}
+
 	pkgPath := args[0]
 	funcSpec := args[1]
 
@@ -225,49 +262,150 @@ func writeToFile(path string, content []byte, testFuncName string, isMerge bool,
 	return os.WriteFile(path, content, 0644)
 }
 
-func interfaceName(mockSpec string) (string, string) {
-	var qualifier, ifaceName string
-
-	switch {
-	case strings.HasPrefix(mockSpec, ".") && len(mockSpec) > 1:
-		qualifier = ""
-		ifaceName = mockSpec[1:]
-	case strings.Contains(mockSpec, "."):
-		parts := strings.SplitN(mockSpec, ".", 2)
-		qualifier, ifaceName = parts[0], parts[1]
-	default:
-		qualifier = ""
-		ifaceName = mockSpec
+// parseMockSpec parses a --mock-from value into its components.
+//
+// Formats:
+//
+//	"UserRepository"                   → bare name, same package
+//	".UserRepository"                  → dot-prefix, same package
+//	"userDomain.UserRepo"              → qualifier (alias in consuming package)
+//	"io/fs.FS"                         → full import path (contains '/')
+//	"net/http.Handler"                 → full import path
+//	"github.com/foo/bar.Doer"          → full import path (external module)
+func parseMockSpec(spec string) mockSpec {
+	lastDot := strings.LastIndex(spec, ".")
+	if lastDot < 0 {
+		// Bare name: "UserRepository"
+		return mockSpec{ifaceName: spec}
 	}
 
-	return qualifier, ifaceName
+	prefix := spec[:lastDot]
+	name := spec[lastDot+1:]
+
+	if prefix == "" {
+		// ".UserRepository" → same package
+		return mockSpec{ifaceName: name}
+	}
+
+	if strings.Contains(prefix, "/") {
+		// "io/fs.FS", "github.com/foo/bar.Doer" → full import path
+		return mockSpec{ifaceName: name, importPath: prefix}
+	}
+
+	// "userDomain.UserRepo" or "io.Writer" → qualifier mode
+	return mockSpec{qualifier: prefix, ifaceName: name}
 }
 
-func source(pkgPath string, info *analyzer.FuncInfo, mockSpec string) (*mockSource, error) {
+func source(pkgPath string, info *analyzer.FuncInfo, rawSpec string) (*mockSource, error) {
 	var result mockSource
+	ms := parseMockSpec(rawSpec)
+	result.ifaceName = ms.ifaceName
+	result.qualifier = ms.qualifier
 
-	result.qualifier, result.ifaceName = interfaceName(mockSpec)
-
-	// pkgPath, result.qualifier, result.ifaceName, info.ImportAliases, info.ImportPath
-	iface, err := analyzer.LoadInterface(&analyzer.InterfaceParams{
+	params := &analyzer.InterfaceParams{
 		PkgPattern:       pkgPath,
-		Qualifier:        result.qualifier,
-		IfaceName:        result.ifaceName,
+		Qualifier:        ms.qualifier,
+		IfaceName:        ms.ifaceName,
 		ConsumingAliases: info.ImportAliases,
 		ConsumingPkgPath: info.ImportPath,
-	})
+		DirectImportPath: ms.importPath,
+	}
+
+	iface, err := analyzer.LoadInterface(params)
+	if err != nil && ms.importPath == "" && ms.qualifier != "" {
+		// Fallback for single-segment qualifiers (e.g., "io.Writer"):
+		// the qualifier might be a stdlib/package name not imported by the consuming file.
+		// Retry treating qualifier as a direct import path.
+		params.DirectImportPath = ms.qualifier
+		params.Qualifier = ""
+		iface, err = analyzer.LoadInterface(params)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("load interface %s: %w", mockSpec, err)
+		return nil, fmt.Errorf("load interface %s: %w", rawSpec, err)
 	}
 
 	result.source, err = generator.GenerateMock(generator.MockGenRequest{
 		Info:    iface,
 		PkgName: info.Package,
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("generate mock %s: %w", result.ifaceName, err)
 	}
 
 	return &result, nil
+}
+
+// runStandaloneMocks generates mock files without a consuming package context.
+func runStandaloneMocks() error {
+	if pkgFlag == "" {
+		return fmt.Errorf("--pkg is required in standalone mock mode (no positional args)")
+	}
+	if outputFlag == "" {
+		return fmt.Errorf("--output is required in standalone mock mode (no positional args)")
+	}
+
+	outDir := ""
+	if outputFlag != "-" {
+		outDir = filepath.Dir(outputFlag)
+		// If --output is a directory path (ends with /), use it directly.
+		if strings.HasSuffix(outputFlag, "/") || strings.HasSuffix(outputFlag, string(filepath.Separator)) {
+			outDir = filepath.Clean(outputFlag)
+		}
+	}
+
+	for _, rawSpec := range mockFromFlags {
+		ms := parseMockSpec(rawSpec)
+
+		params := &analyzer.InterfaceParams{
+			IfaceName:        ms.ifaceName,
+			Qualifier:        ms.qualifier,
+			DirectImportPath: ms.importPath,
+		}
+
+		iface, err := analyzer.LoadInterface(params)
+		if err != nil && ms.importPath == "" && ms.qualifier != "" {
+			// Fallback: try qualifier as direct import path.
+			params.DirectImportPath = ms.qualifier
+			params.Qualifier = ""
+			iface, err = analyzer.LoadInterface(params)
+		}
+		if err != nil {
+			return fmt.Errorf("load interface %s: %w", rawSpec, err)
+		}
+
+		src, err := generator.GenerateMock(generator.MockGenRequest{
+			Info:    iface,
+			PkgName: pkgFlag,
+		})
+		if err != nil {
+			return fmt.Errorf("generate mock %s: %w", ms.ifaceName, err)
+		}
+
+		formatted, err := analyzer.FormatCode(src)
+		if err != nil {
+			formatted = src
+		}
+
+		if outputFlag == "-" {
+			mockFile := generator.MockFileName(ms.ifaceName)
+			fmt.Printf("\n// --- mock: %s ---\n", mockFile)
+			os.Stdout.Write(formatted)
+			continue
+		}
+
+		mockFile := filepath.Join(outDir, generator.MockFileName(ms.ifaceName))
+
+		// Don't overwrite existing mock files.
+		if _, err := os.Stat(mockFile); err == nil {
+			fmt.Fprintf(os.Stderr, "mock file %s already exists, skipping\n", mockFile)
+			continue
+		}
+
+		if err := os.WriteFile(mockFile, formatted, 0644); err != nil {
+			return fmt.Errorf("write mock file %s: %w", mockFile, err)
+		}
+		fmt.Fprintf(os.Stderr, "wrote %s\n", mockFile)
+	}
+
+	return nil
 }

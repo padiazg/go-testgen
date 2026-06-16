@@ -55,7 +55,15 @@ go-testgen gen ./internal/core/services/user Service.CreateUser \
 go-testgen gen ./internal/transport/i2c I2CTransport.Read \
   --mock-from mockI2C
 
-# Same-package interface (dot prefix)
+# External interfaces (full import path)
+go-testgen gen --mock-from "io.Writer" --pkg mypkg -o -
+
+# Multiple external mocks
+go-testgen gen --mock-from "io.Writer" --mock-from "io.Reader" --pkg mypkg --output ./
+
+# Standalone mode (0 args, --mock-from + --pkg + --output required)
+go-testgen gen --mock-from "net/http.Handler" --mock-from "io/fs.FS" --pkg mypkg --output ./
+```
 go-testgen gen ./internal/transport/i2c I2CTransport.Read \
   --mock-from .I2CTransport
 ```
@@ -67,7 +75,7 @@ go-testgen gen ./internal/transport/i2c I2CTransport.Read \
 | `-o`, `--output` | auto | Output file. Omit to auto-detect (`<source>_test.go`). Use `-` for stdout. |
 | `-v`, `--verbose` | false | Print parsed `FuncInfo` JSON to stderr before generating |
 | `--style` | — | Path to `.go-testgen.yaml` config file |
-| `--mock-from` | — | Generate a testify mock for an interface (repeatable) — accepts `qualifier.InterfaceName`, `.InterfaceName`, or bare `InterfaceName` |
+| `--mock-from` | — | Generate a testify mock for an interface (repeatable) — accepts `qualifier.InterfaceName`, `io/fs.FS` (full import path), `.InterfaceName`, or bare `InterfaceName`. In standalone mode (0 positional args), `--pkg` and `--output` are required. |
 
 **Smart merge:** if the target `_test.go` already exists but doesn't contain the test function, go-testgen appends the new test and injects any missing imports. It never overwrites an existing test function without prompting.
 
@@ -222,7 +230,7 @@ Key properties:
 
 ## Generated mock style
 
-`--mock-from` accepts three formats: `qualifier.InterfaceName` (external import), `.InterfaceName` (same package with dot), or bare `InterfaceName` (same package). Generates a complete testify mock written to `mock_<interfacename>_test.go` in the same directory as the test file.
+`--mock-from` accepts four formats: `qualifier.InterfaceName` (cross-package via consuming imports), `io/fs.FS` (full import path for external/stdlib), `.InterfaceName` (same package with dot), or bare `InterfaceName` (same package). Generates a complete testify mock written to `mock_<interfacename>_test.go` in the same directory as the test file. In standalone mode (0 positional args), `--pkg` and `--output` are required.
 
 ```go
 type mockUserRepository struct {

@@ -14,6 +14,7 @@ type InterfaceParams struct {
 	IfaceName        string
 	ConsumingAliases map[string]string
 	ConsumingPkgPath string
+	DirectImportPath string // full import path — bypasses qualifier resolution when set
 }
 
 // trySamePackage checks if ifaceName is an interface exported by the consuming package.
@@ -57,6 +58,11 @@ func (ip *InterfaceParams) findImportPathByAlias(alias string) string {
 }
 
 func (ip *InterfaceParams) importPath() string {
+	// Direct import path provided — skip all resolution.
+	if ip.DirectImportPath != "" {
+		return ip.DirectImportPath
+	}
+
 	importPath := ""
 	if ip.Qualifier == "" {
 		// Bare name: try same package first (check if ifaceName is an interface in consuming scope)
@@ -247,10 +253,17 @@ func LoadInterface(ip *InterfaceParams) (*InterfaceInfo, error) {
 		return nil, fmt.Errorf("%q is not an interface in package %s", ip.IfaceName, importPath)
 	}
 
+	// When no qualifier was provided (direct import path or standalone mode),
+	// derive it from the loaded package's name.
+	qualifier := ip.Qualifier
+	if qualifier == "" {
+		qualifier = pkg.Name
+	}
+
 	info := &InterfaceInfo{
 		Name:       ip.IfaceName,
 		Package:    pkg.Name,
-		Qualifier:  ip.Qualifier,
+		Qualifier:  qualifier,
 		ImportPath: importPath,
 	}
 
