@@ -4,6 +4,9 @@ go-testgen generates placeholder `TODO` cases. This page explains how to turn th
 
 ## Option A: Use `gen-cases` (spec-driven)
 
+!!! note "Experimental"
+    The `gen-cases` workflow is experimental. See the [command reference](../commands/gen-cases.md) for details.
+
 If you have a `.testspec.yaml` describing the scenarios, run:
 
 ```bash
