@@ -262,6 +262,40 @@ generate_mocks: true        # generate mock files when --mock-from is used
 generate_checks: true       # generate checkXxx helper functions
 ```
 
+## AI Agent Skills
+
+Skills for AI coding agents (OpenCode, Claude Code, Cursor, Codex, Gemini) that
+guide them in using go-testgen's closure-check test pattern and generating
+comprehensive test cases.
+
+### Install
+
+```bash
+# Via curl (recomendado, sin clone)
+curl -fsSL https://raw.githubusercontent.com/padiazg/go-testgen/main/scripts/install.sh | bash
+
+# Con target personalizado
+curl -fsSL ... | bash -s -- /path/to/target/skills
+
+# Local (con repo clonado)
+./scripts/install.sh
+```
+
+Installs `closure-check-tests` and `gen-test-cases` skills, plus `AGENTS.md`
+as a pipeline reference under the `go-testgen/` subdirectory to avoid
+collisions with other agents' configuration.
+
+### Usage
+
+After installation, instruct your AI agent to read both skills before
+generating test cases:
+
+```
+Read skills/closure-check-tests/SKILL.md and skills/gen-test-cases/SKILL.md.
+Then read [source file] and [existing _test.go].
+Generate test cases for TestXxx_Yyy.
+```
+
 ## Channel Type Support
 
 go-testgen detects and correctly handles all channel types — `chan`, `chan<-`, `<-chan` — in both parameters and results.

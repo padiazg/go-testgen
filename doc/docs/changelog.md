@@ -14,12 +14,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Generates `before`/`after` function stubs with signature inferred from the existing AST
   - Emits `// ai-hint:` comments so a generative AI can complete concrete values
   - Idempotent: skips entries that already exist by name; `--force` replaces them
-  - `--dry-run`, `--no-hints`, `--verbose` flags
-  - Resolves target `_test.go` automatically; override with `--output`
-- `internal/spec` package — YAML types and `ParseFile()` for `.testspec.yaml`
+  - `--dry-run` previews output without writing; `--no-hints` omits ai-hint comments; `--verbose` prints a generation summary
+  - Resolves target `_test.go` automatically from package + function name (override with `--output`)
+- `internal/spec` package — YAML types and `ParseFile()` for `.testspec.yaml` format
 - `internal/gencases` package — AST-based analysis + text-based insertion pipeline
 
-## v0.1.4 - 2026-05-13
+### Added
+
+- AI agent skills — `skills/` directory promoted to root with `<name>/SKILL.md` structure for OpenCode, Claude Code, Cursor, Codex, Gemini compatibility
+- `scripts/install.sh` — `curl | bash` installer for AI agent skills
+
+### Changed
+
+- Moved `research/skills/` → `skills/` (first-class citizen at repo root)
+- `skills/AGENTS.md` — paths updated to reflect new skill locations
+- `README.md` — AI Agent Skills section updated with `curl | bash` install command
+
+### Removed
+
+- Removed stale root `skills/` directory (had corrupt `gen-test-cases` content)
+
+## v0.1.4 - [unreleased]
 
 ### Added
 
@@ -174,3 +189,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI/CD workflow
 - Platform targets: Linux x86_64/arm64, macOS x86_64/arm64
 - Static binaries (`CGO_ENABLED=0`)
+
+---
+
+## How to Install
+
+```bash
+go install github.com/padiazg/go-testgen@latest
+```
+
+Or build from source:
+
+```bash
+make build
+make install
+```

@@ -13,7 +13,7 @@ directamente a partir del código fuente aplicando los skills.
 
 ## Skills disponibles
 
-Están en `skills/` en la raíz del repositorio.
+Están en `skills/`.
 Lee ambos antes de generar cualquier test.
 
 | Skill | Cuándo leerlo |
