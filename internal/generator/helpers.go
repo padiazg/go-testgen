@@ -126,11 +126,6 @@ func deriveOutFile(info *analyzer.FuncInfo) string {
 
 // generateImports builds the full import block string for a new test file.
 func generateImports(info *analyzer.FuncInfo) string {
-	type importEntry struct {
-		Path  string
-		Alias string
-	}
-
 	imports := info.GetImports()
 	hasNonErrorResults := info.HasNonErrorResults()
 

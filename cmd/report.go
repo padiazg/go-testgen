@@ -133,42 +133,50 @@ func printReport(result *analyzer.ScanResult, pkgPattern string) {
 		fmt.Printf("       %s\n", fn.Signature)
 
 		if len(fn.InterfaceDeps) > 0 {
-			fmt.Println("       Interface deps:")
-			for _, dep := range fn.InterfaceDeps {
-				mockStatus := "✗ (missing)"
-				if dep.MockExists {
-					mockStatus = "✓"
-				}
-				fmt.Printf("         %s   %s  %s\n", dep.MockFrom, dep.MockFile, mockStatus)
-			}
+			printInterfaceDeps(fn)
 		}
 
 		if !fn.TestExists {
 			// Build the suggested gen command.
-			cmd := "go-testgen gen " + pkgPattern + " " + fn.FuncSpec
-			if fn.SuggestedStyle != "" && fn.SuggestedStyle != "check" {
-				cmd += " --style " + fn.SuggestedStyle
-			}
-
-			mockArgs := fn.InterfaceDeps.MockArgs()
-
-			switch len(mockArgs) {
-			case 0:
-				fmt.Printf("       Suggest: %s\n", cmd)
-			case 1:
-				fmt.Printf("       Suggest: %s %s\n", cmd, mockArgs[0])
-			default:
-				fmt.Printf("       Suggest: %s \\\n", cmd)
-				for i, m := range mockArgs {
-					if i < len(mockArgs)-1 {
-						fmt.Printf("                  %s \\\n", m)
-					} else {
-						fmt.Printf("                  %s\n", m)
-					}
-				}
-			}
+			printSuggestedCommand(pkgPattern, fn)
 		}
 
 		fmt.Println()
+	}
+}
+
+func printSuggestedCommand(pkgPattern string, fn analyzer.FuncSummary) {
+	cmd := "go-testgen gen " + pkgPattern + " " + fn.FuncSpec
+	if fn.SuggestedStyle != "" && fn.SuggestedStyle != "check" {
+		cmd += " --style " + fn.SuggestedStyle
+	}
+
+	mockArgs := fn.InterfaceDeps.MockArgs()
+
+	switch len(mockArgs) {
+	case 0:
+		fmt.Printf("       Suggest: %s\n", cmd)
+	case 1:
+		fmt.Printf("       Suggest: %s %s\n", cmd, mockArgs[0])
+	default:
+		fmt.Printf("       Suggest: %s \\\n", cmd)
+		for i, m := range mockArgs {
+			if i < len(mockArgs)-1 {
+				fmt.Printf("                  %s \\\n", m)
+			} else {
+				fmt.Printf("                  %s\n", m)
+			}
+		}
+	}
+}
+
+func printInterfaceDeps(fn analyzer.FuncSummary) {
+	fmt.Println("       Interface deps:")
+	for _, dep := range fn.InterfaceDeps {
+		mockStatus := "✗ (missing)"
+		if dep.MockExists {
+			mockStatus = "✓"
+		}
+		fmt.Printf("         %s   %s  %s\n", dep.MockFrom, dep.MockFile, mockStatus)
 	}
 }

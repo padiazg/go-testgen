@@ -6,22 +6,22 @@ import (
 )
 
 type FuncInfo struct {
-	ImportAliases map[string]string // importPath -> local alias
-	Receiver      *ReceiverInfo
-	Doc           string
-	FactoryFunc   string      // factory function name for methods (e.g., "NewClient")
+	ImportAliases       map[string]string // importPath -> local alias
+	Receiver            *ReceiverInfo
+	Doc                 string
+	FactoryFunc         string // factory function name for methods (e.g., "NewClient")
+	ImportPath          string
+	Name                string
+	Package             string
+	SourceFile          string
 	FactoryParams       []ParamInfo // factory function parameters (captured for proper instantiation)
-	FactoryReturnsError bool        // whether the factory function returns an error
-	ImportPath    string
-	Name          string
-	Package       string
-	SourceFile    string
-	Imports       []string
-	Params        []ParamInfo
-	Results       []ResultInfo
-	HasContext    bool
-	HasError      bool
-	IsMethod      bool
+	Imports             []string
+	Params              []ParamInfo
+	Results             []ResultInfo
+	FactoryReturnsError bool // whether the factory function returns an error
+	HasContext          bool
+	HasError            bool
+	IsMethod            bool
 }
 
 type ReceiverInfo struct {

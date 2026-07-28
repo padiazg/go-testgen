@@ -5,6 +5,8 @@ package cmd
 
 import (
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/padiazg/go-testgen/pkg/version"
 	"github.com/spf13/cobra"
@@ -14,18 +16,25 @@ import (
 var (
 	versionCmd = &cobra.Command{
 		Use:   "version",
-		Short: "Shows TestGen version",
-		Run: func(cmd *cobra.Command, args []string) {
-			simple, _ := cmd.Flags().GetBool("simple")
-			if simple {
-				fmt.Printf("%s", version.CurrentVersion().Version)
-				return
-			}
-
-			version.Splash()
-		},
+		Short: "Shows go-crap version",
+		Run:   runVersion,
 	}
 )
+
+func runVersion(cmd *cobra.Command, args []string) {
+	simple, _ := cmd.Flags().GetBool("simple")
+	if simple {
+		fmt.Printf("%s", version.CurrentVersion().Version)
+		return
+	}
+
+	var (
+		stdWriter io.Writer = os.Stdout
+		errWriter io.Writer = os.Stderr
+	)
+
+	version.Splash(stdWriter, errWriter)
+}
 
 func init() {
 	rootCmd.AddCommand(versionCmd)

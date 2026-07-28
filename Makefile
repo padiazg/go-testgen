@@ -1,18 +1,52 @@
-.PHONY: build test lint install clean
+MODULE   := $(shell head -1 go.mod | awk '{print $$2}')
+BINARY   := $(notdir $(MODULE))
+VERSION_PKG := $(MODULE)/pkg/version
 
-build: pkg=github.com/padiazg/go-testgen/pkg/version
-build: ldflags = -X $(pkg).version=$(shell git describe --tags --always --dirty) 
-build: ldflags += -X $(pkg).commit=$(shell git rev-parse HEAD)
-build: ldflags += -X $(pkg).buildDate=$(shell date -Iseconds)
+LDFLAGS  := -X $(VERSION_PKG).version=$(shell git describe --tags --always --dirty)
+LDFLAGS  += -X $(VERSION_PKG).commit=$(shell git rev-parse HEAD)
+LDFLAGS  += -X $(VERSION_PKG).buildDate=$(shell date -Iseconds)
+
+.PHONY: build test lint clean fmt mod-tidy help install coverage fieldalignment preflight
 
 build:
-	@echo "Building go-testgen..."
-	@echo "ldflags: $(ldflags)"
-	@go build -o go-testgen -ldflags "$(ldflags)"
+	@echo "Building $(BINARY)..."
+	@go build -o $(BINARY) -ldflags "$(LDFLAGS)"
 
 test:
-	go test ./... -v -count=1
+	go test -race -count=1 ./...
 
 lint:
 	golangci-lint run ./...
 
+clean:
+	rm -f $(BINARY) coverage.out mutation*.json
+
+fmt:
+	gofmt -s -w .
+
+mod-tidy:
+	go mod tidy
+
+install: build
+	cp $(BINARY) $(shell go env GOPATH)/bin/
+
+coverage:
+	go test -race -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out
+
+fieldalignment:
+	fieldalignment -test=false ./...
+
+preflight: lint test fieldalignment crap
+
+help:
+	@echo "build     - compile binary"
+	@echo "test      - run tests with race detector"
+	@echo "lint      - run golangci-lint"
+	@echo "clean     - remove build artifacts"
+	@echo "fmt       - format source code"
+	@echo "mod-tidy  - tidy go.mod"
+	@echo "install   - build and copy to GOPATH/bin"
+	@echo "coverage  - generate coverage report"
+	@echo "preflight - lint + test + fieldalignment + crap"
+	@echo "help      - show this help"

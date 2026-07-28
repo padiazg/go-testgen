@@ -1,6 +1,12 @@
+# Development files
 bin/
 .vscode
 .claude
+testgen
+*.out
+mutation.json
+
+# Documentation
 *.md
 !README.md
 !CLAUDE.md
@@ -10,5 +16,3 @@ bin/
 !skills/**/*.md
 doc/site
 go-testgen
-testgen
-*.out

@@ -18,7 +18,7 @@ func Format(src []byte) ([]byte, error) {
 // WriteFile writes content to path, or prints to stdout on dry-run.
 func WriteFile(path string, content []byte, dryRun bool) error {
 	if dryRun {
-		os.Stdout.Write(content)
+		_, _ = os.Stdout.Write(content)
 		return nil
 	}
 	return os.WriteFile(path, content, 0644)

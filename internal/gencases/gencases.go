@@ -188,7 +188,7 @@ func applyInsertions(src []byte, insertions []insertion, replaces []replaceOp) [
 		ops = append(ops, op{start: ins.offset, end: ins.offset, content: ins.content})
 	}
 	for _, r := range replaces {
-		ops = append(ops, op{start: r.start, end: r.end, content: r.content})
+		ops = append(ops, op(r))
 	}
 
 	// Sort descending by start offset so we apply from end to start

@@ -61,7 +61,7 @@ If the target `_test.go` already exists, go-testgen appends the new test and inj
 
 ```bash
 # Install
-go install github.com/padiazg/go-testgen@latest
+curl -fsSL https://padiazg.github.io/go-testgen/install.sh | sh
 
 # See what needs tests
 go-testgen report ./internal/core/services/user
@@ -79,7 +79,7 @@ go-testgen gen ./internal/core/services/user Service.CreateUser -o -
 ## Installation
 
 ```bash
-go install github.com/padiazg/go-testgen@latest
+curl -fsSL https://padiazg.github.io/go-testgen/install.sh | sh
 ```
 
 → [Installation Guide](getting-started/installation.md)

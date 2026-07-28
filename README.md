@@ -1,22 +1,39 @@
 # go-testgen
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/padiazg/go-testgen.svg)](https://pkg.go.dev/github.com/padiazg/go-testgen)
-[![Go Report Card](https://goreportcard.com/badge/github.com/padiazg/go-testgen)](https://goreportcard.com/report/github.com/padiazg/go-testgen)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![CRAP analysis](https://github.com/padiazg/go-testgen/actions/workflows/crap.yml/badge.svg?branch=master)](https://github.com/padiazg/go-testgen/actions/workflows/crap.yml)
 
 A CLI tool to generate unit test scaffolding for Go projects. It produces closure-based check functions, a `before` hook for mock setup, and table-driven tests that compose cleanly as test suites grow.
 
 ## Installation
 
 ```bash
+curl -fsSL https://padiazg.github.io/go-testgen/install.sh | sh
+```
+
+Or install a specific version:
+
+```bash
+curl -fsSL https://padiazg.github.io/go-testgen/install.sh | sh -s -- -v v0.2.1
+```
+
+The binary is placed in `$GOPATH/bin` (or `$GOBIN` if set). Make sure that directory is in your `PATH`.
+
+> **Note:** `go install` rebuilds the binary from source. The version will show as `v0.0.0 unknown unknown` because ldflags are not applied during `go install`. Use the curl installer above for release binaries with proper version info.
+
+Development fallback:
+
+```bash
 go install github.com/padiazg/go-testgen/cmd/go-testgen@latest
 ```
 
-Or build from source:
+Build from source:
 
 ```bash
+git clone https://github.com/padiazg/go-testgen.git
+cd go-testgen
 make build
-make install
 ```
 
 ## Commands
@@ -63,7 +80,7 @@ go-testgen gen --mock-from "io.Writer" --mock-from "io.Reader" --pkg mypkg --out
 
 # Standalone mode (0 args, --mock-from + --pkg + --output required)
 go-testgen gen --mock-from "net/http.Handler" --mock-from "io/fs.FS" --pkg mypkg --output ./
-```
+```shell
 go-testgen gen ./internal/transport/i2c I2CTransport.Read \
   --mock-from .I2CTransport
 ```
@@ -279,14 +296,13 @@ comprehensive test cases.
 ### Install
 
 ```bash
-# Via curl (recomendado, sin clone)
-curl -fsSL https://raw.githubusercontent.com/padiazg/go-testgen/main/scripts/install.sh | bash
+curl -fsSL https://padiazg.github.io/go-testgen/skills.sh | bash
+```
 
-# Con target personalizado
-curl -fsSL ... | bash -s -- /path/to/target/skills
+Or install to a custom directory:
 
-# Local (con repo clonado)
-./scripts/install.sh
+```bash
+curl -fsSL https://padiazg.github.io/go-testgen/skills.sh | bash -s --
 ```
 
 Installs `closure-check-tests` and `gen-test-cases` skills, plus `AGENTS.md`
@@ -339,3 +355,7 @@ go-testgen gen-cases ./internal/core/services/user/service_create_user.testspec.
 # 5. Run tests
 go test ./internal/core/services/user/...
 ```
+
+## Full Documentation
+
+For a complete guide covering all commands, concepts, and configuration, see [the documentation site](https://padiazg.github.io/go-testgen).

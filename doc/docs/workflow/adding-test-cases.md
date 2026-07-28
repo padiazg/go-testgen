@@ -7,7 +7,7 @@ go-testgen generates placeholder `TODO` cases. Three ways to turn them into real
 Install the go-testgen AI agent skills and let your coding assistant fill in the cases directly from the source code:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/padiazg/go-testgen/main/scripts/install.sh | bash
+curl -fsSL https://padiazg.github.io/go-testgen/skills.sh | bash
 ```
 
 Then prompt:

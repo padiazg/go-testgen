@@ -40,7 +40,7 @@ func runInspect(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("json marshal: %w", err)
 	}
 
-	os.Stdout.Write(b)
-	os.Stdout.Write([]byte("\n"))
+	_, _ = os.Stdout.Write(b)
+	_, _ = os.Stdout.Write([]byte("\n"))
 	return nil
 }

@@ -4,23 +4,23 @@ import "strings"
 
 // ScanResult holds the full analysis of a package.
 type ScanResult struct {
-	Funcs      Funcs  `json:"funcs"`
 	ImportPath string `json:"importPath"`
 	Package    string `json:"package"`
 	SourceDir  string `json:"sourceDir"`
+	Funcs      Funcs  `json:"funcs"`
 }
 
 // FuncSummary describes a single function or method.
 type FuncSummary struct {
-	InterfaceDeps     InterfaceDeps `json:"interfaceDeps"`
 	FuncSpec          string        `json:"funcSpec"` // "ReceiverType.Name" or "Name"
 	Name              string        `json:"name"`
+	PackageImportPath string        `json:"packageImportPath,omitempty"`
 	ReceiverType      string        `json:"receiverType,omitempty"`
 	Signature         string        `json:"signature"` // fully-qualified types
 	SourceFile        string        `json:"sourceFile"`
 	SuggestedStyle    string        `json:"suggestedStyle,omitempty"`
 	TestFuncName      string        `json:"testFuncName"`
-	PackageImportPath string        `json:"packageImportPath,omitempty"`
+	InterfaceDeps     InterfaceDeps `json:"interfaceDeps"`
 	NumParams         int           `json:"numParams"`
 	NumResults        int           `json:"numResults"`
 	HasArrayResult    bool          `json:"hasArrayResult"`
