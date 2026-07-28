@@ -14,7 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Install go-crap
-        run: curl -fsSL https://padiazg.github.io/go-crap/install.sh | sh && PATH="$PATH:$(go env GOPATH)/bin"
+        run: curl -fsSL https://padiazg.github.io/go-crap/install.sh | sh
+      - name: Update PATH
+        run: export PATH="$PATH:$(go env GOPATH)/bin"
       - name: Generate baseline
         run: go-crap scan --format json --output crap-current.json
       - uses: actions/upload-artifact@v7
