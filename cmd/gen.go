@@ -207,7 +207,7 @@ func generateMocks(pkgPath string, info *analyzer.FuncInfo, outputFlag string) e
 
 		if outputFlag == "-" {
 			fmt.Printf("\n// --- mock: %s ---\n", mockFile)
-			os.Stdout.Write(formatted)
+			_, _ = os.Stdout.Write(formatted)
 			continue
 		}
 
@@ -233,7 +233,7 @@ func writeOutput(content []byte, outputFlag, sourceFile, testFuncName string, is
 
 	switch outputFlag {
 	case "-":
-		os.Stdout.Write(content)
+		_, _ = os.Stdout.Write(content)
 		return nil
 	case "":
 		targetPath := analyzer.DeriveTestPath(sourceFile)
@@ -389,7 +389,7 @@ func runStandaloneMocks() error {
 		if outputFlag == "-" {
 			mockFile := generator.MockFileName(ms.ifaceName)
 			fmt.Printf("\n// --- mock: %s ---\n", mockFile)
-			os.Stdout.Write(formatted)
+			_, _ = os.Stdout.Write(formatted)
 			continue
 		}
 

@@ -52,7 +52,7 @@ func GenerateCaseEntry(c *spec.Case, s *spec.Spec, structFields []*ast.Field, fs
 
 	var sb strings.Builder
 	sb.WriteString("{\n")
-	sb.WriteString(fmt.Sprintf("name: %q,\n", c.Name))
+	fmt.Fprintf(&sb, "name: %q,\n", c.Name)
 
 	for _, field := range structFields {
 		for _, nameIdent := range field.Names {
@@ -129,10 +129,10 @@ func generateBeforeEntry(c *spec.Case, fieldType ast.Expr, fset *token.FileSet, 
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("before: func(%s)%s {\n", params, returnType))
+	fmt.Fprintf(&sb, "before: func(%s)%s {\n", params, returnType)
 	if !noHints {
 		if c.Before.Mechanism != "" {
-			sb.WriteString(fmt.Sprintf("// ai-hint: %s\n", c.Before.Mechanism))
+			fmt.Fprintf(&sb, "// ai-hint: %s\n", c.Before.Mechanism)
 		}
 		if c.Before.Description != "" {
 			for _, line := range wrapText(c.Before.Description, 72) {
@@ -145,9 +145,9 @@ func generateBeforeEntry(c *spec.Case, fieldType ast.Expr, fset *token.FileSet, 
 	if c.Before.Returns != nil {
 		zero := zeroValueFor(c.Before.Returns.Type)
 		if noHints {
-			sb.WriteString(fmt.Sprintf("return %s\n", zero))
+			fmt.Fprintf(&sb, "return %s\n", zero)
 		} else {
-			sb.WriteString(fmt.Sprintf("return %s // ai-hint: return the value described above\n", zero))
+			fmt.Fprintf(&sb, "return %s // ai-hint: return the value described above\n", zero)
 		}
 	}
 	sb.WriteString("},\n")
@@ -167,10 +167,10 @@ func generateAfterEntry(c *spec.Case, fieldType ast.Expr, fset *token.FileSet, n
 	params := formatFuncParams(funcType.Params, fset)
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("after: func(%s) {\n", params))
+	fmt.Fprintf(&sb, "after: func(%s) {\n", params)
 	if !noHints {
 		if c.After.Mechanism != "" {
-			sb.WriteString(fmt.Sprintf("// ai-hint: %s\n", c.After.Mechanism))
+			fmt.Fprintf(&sb, "// ai-hint: %s\n", c.After.Mechanism)
 		}
 		if c.After.Description != "" {
 			for _, line := range wrapText(c.After.Description, 72) {
@@ -192,15 +192,15 @@ func generateChecksEntry(c *spec.Case, s *spec.Spec, fieldType ast.Expr, fset *t
 
 	var sb strings.Builder
 	if len(c.Checks) > 0 {
-		sb.WriteString(fmt.Sprintf("checks: %s(\n", composerCall))
+		fmt.Fprintf(&sb, "checks: %s(\n", composerCall)
 		for _, chk := range c.Checks {
 			sb.WriteString(prefixCheckCall(chk, s, qualifier))
 			sb.WriteString(",\n")
 		}
 		sb.WriteString("),\n")
 	} else if !noHints {
-		sb.WriteString(fmt.Sprintf("checks: %s(\n", composerCall))
-		sb.WriteString(fmt.Sprintf("// ai-hint: add checks for case %q\n", c.Name))
+		fmt.Fprintf(&sb, "checks: %s(\n", composerCall)
+		fmt.Fprintf(&sb, "// ai-hint: add checks for case %q\n", c.Name)
 		if c.Description != "" {
 			for _, line := range wrapText(c.Description, 72) {
 				sb.WriteString("// ")
@@ -215,7 +215,7 @@ func generateChecksEntry(c *spec.Case, s *spec.Spec, fieldType ast.Expr, fset *t
 
 func generateTodoCase(c *spec.Case) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("// TODO: implement case %q\n", c.Name))
+	fmt.Fprintf(&sb, "// TODO: implement case %q\n", c.Name)
 	if c.Description != "" {
 		for _, line := range wrapText(c.Description, 76) {
 			sb.WriteString("// ")
