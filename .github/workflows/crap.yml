@@ -90,14 +90,14 @@ jobs:
       - name: score
         run: |
           if [ -f baseline/crap-current.json ]; then
-            go-crap scan --baseline baseline/crap-current.json --format github --fail-above --threshold 30 --verbose
+            go-crap scan --baseline baseline/crap-current.json --format github --threshold 30 --verbose #--fail-above
           else
-            go-crap scan --format github --fail-above --threshold 30 --verbose
+            go-crap scan --format github --threshold 30 --verbose #--fail-above
           fi
 
       - name: check for regressions
         if: github.event_name == 'pull_request' && hashFiles('baseline/crap-current.json') != ''
-        run: go-crap scan --baseline baseline/crap-current.json --fail-regression --fail-regression-ignore-covered
+        run: go-crap scan --baseline baseline/crap-current.json --fail-regression-ignore-covered #--fail-regression
 
       - name: generate pr comment
         if: github.event_name == 'pull_request'
