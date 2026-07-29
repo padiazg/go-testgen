@@ -552,30 +552,35 @@ func findFactoryFunc(pkg *packages.Package, receiverType string) (string, []Para
 			retType := typeExprToString(fn.Type.Results.List[0].Type)
 			if retType == "*"+receiverType {
 				// Capture the factory function's parameters
-				var factoryParams []ParamInfo
-				if fn.Type.Params != nil {
-					for _, param := range fn.Type.Params.List {
-						if len(param.Names) <= 1 {
-							pi := resolveParamInfo(param, pkg)
-							factoryParams = append(factoryParams, pi)
-						} else {
-							for _, name := range param.Names {
-								single := &ast.Field{Names: []*ast.Ident{name}, Type: param.Type}
-								pi := resolveParamInfo(single, pkg)
-								factoryParams = append(factoryParams, pi)
-							}
-						}
-					}
-				}
-				// Check if factory returns error as second return value
-				returnsError := false
-				if fn.Type.Results != nil && len(fn.Type.Results.List) >= 2 {
-					secondType := typeExprToString(fn.Type.Results.List[1].Type)
-					returnsError = secondType == "error"
-				}
+				factoryParams, returnsError := factoryParams(fn, pkg)
 				return fn.Name.Name, factoryParams, returnsError
 			}
 		}
 	}
 	return "", nil, false
+}
+
+func factoryParams(fn *ast.FuncDecl, pkg *packages.Package) ([]ParamInfo, bool) {
+	var factoryParams []ParamInfo
+	if fn.Type.Params != nil {
+		for _, param := range fn.Type.Params.List {
+			if len(param.Names) <= 1 {
+				pi := resolveParamInfo(param, pkg)
+				factoryParams = append(factoryParams, pi)
+			} else {
+				for _, name := range param.Names {
+					single := &ast.Field{Names: []*ast.Ident{name}, Type: param.Type}
+					pi := resolveParamInfo(single, pkg)
+					factoryParams = append(factoryParams, pi)
+				}
+			}
+		}
+	}
+	// Check if factory returns error as second return value
+	returnsError := false
+	if fn.Type.Results != nil && len(fn.Type.Results.List) >= 2 {
+		secondType := typeExprToString(fn.Type.Results.List[1].Type)
+		returnsError = secondType == "error"
+	}
+	return factoryParams, returnsError
 }

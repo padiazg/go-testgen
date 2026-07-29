@@ -1,4 +1,4 @@
-package gencases
+package astreader
 
 import (
 	"fmt"

@@ -36,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - AI agent skills — `skills/` directory promoted to root with `<name>/SKILL.md` structure for OpenCode, Claude Code, Cursor, Codex, Gemini compatibility
-- `scripts/install.sh` — `curl | bash` installer for AI agent skills
+- `scripts/install.sh` → `doc/docs/skills.sh` — `curl | bash` installer for AI agent skills, moved to docs for GH Pages publishing
 
 ### Changed
 

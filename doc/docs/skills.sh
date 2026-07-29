@@ -1,16 +1,22 @@
 #!/bin/sh
 set -eu
 
-# install.sh — Installs go-testgen AI agent skills
+# skills.sh — Installs go-testgen AI agent skills
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/padiazg/go-testgen/main/scripts/install.sh | bash
+#   curl -fsSL https://padiazg.github.io/go-testgen/skills.sh | bash
 #   curl -fsSL ... | bash -s -- /path/to/target/skills
-#   ./scripts/install.sh /path/to/target/skills
+#
+# Env var:
+#   TARGET — custom skills directory (default: $HOME/.agents/skills)
+#
+# Installs closure-check-tests and gen-test-cases skills, plus AGENTS.md
+# as a pipeline reference under the go-testgen/ subdirectory to avoid
+# collisions with other agents' configuration.
 
 REPO="padiazg/go-testgen"
 BRANCH="${BRANCH:-main}"
-TARGET="${1:-$HOME/.agents/skills}"
+TARGET="${TARGET:-$HOME/.agents/skills}"
 BASE="https://raw.githubusercontent.com/$REPO/$BRANCH/skills"
 
 echo "Installing go-testgen AI agent skills to $TARGET"

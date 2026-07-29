@@ -2,9 +2,11 @@ package spec
 
 import (
 	"fmt"
-	"os"
+	"go/ast"
+	"go/token"
+	"strings"
 
-	"gopkg.in/yaml.v3"
+	"github.com/padiazg/go-testgen/internal/astreader"
 )
 
 type Spec struct {
@@ -21,98 +23,26 @@ type Spec struct {
 	Cases        []Case         `yaml:"cases"`
 }
 
-type Context struct {
-	SubjectInit string `yaml:"subject_init"`
+// replaceOp describes a byte-range replacement.
+type replaceOp struct {
+	content string
+	end     int
+	start   int
 }
 
-type PackageState struct {
-	Description       string `yaml:"description"`
-	Name              string `yaml:"name"`
-	Type              string `yaml:"type"`
-	ClearBetweenCases bool   `yaml:"clear_between_cases"`
+// Options controls gen-cases behavior.
+type Options struct {
+	Output  string
+	DryRun  bool
+	Force   bool
+	NoHints bool
+	Verbose bool
 }
 
-type Fixture struct {
-	Name        string `yaml:"name"`
-	Type        string `yaml:"type"`
-	Description string `yaml:"description"`
-	Value       string `yaml:"value"`
-}
-
-type CheckType struct {
-	ID          string `yaml:"id"`
-	TypeName    string `yaml:"type_name"`
-	Signature   string `yaml:"signature"`
-	Composer    string `yaml:"composer"`
-	Package     string `yaml:"package"`
-	Description string `yaml:"description"`
-}
-
-type Check struct {
-	ID        string       `yaml:"id"`
-	ForType   string       `yaml:"for_type"`
-	Scope     string       `yaml:"scope"`
-	Signature string       `yaml:"signature"`
-	When      string       `yaml:"when"`
-	Params    []CheckParam `yaml:"params"`
-	Captures  []string     `yaml:"captures"`
-}
-
-type CheckParam struct {
-	Name          string `yaml:"name"`
-	Type          string `yaml:"type"`
-	Doc           string `yaml:"doc"`
-	SentinelEmpty string `yaml:"sentinel_empty"`
-}
-
-type TableField struct {
-	Name string `yaml:"name"`
-	Type string `yaml:"type"`
-	Role string `yaml:"role"`
-	Doc  string `yaml:"doc"`
-}
-
-type Case struct {
-	After       *After            `yaml:"after"`
-	Before      *Before           `yaml:"before"`
-	Fields      map[string]string `yaml:"fields"`
-	Gates       map[string]string `yaml:"gates"`
-	Description string            `yaml:"description"`
-	Name        string            `yaml:"name"`
-	Checks      []string          `yaml:"checks"`
-	Todo        bool              `yaml:"todo"`
-}
-
-type Before struct {
-	Returns     *Returns `yaml:"returns"`
-	Description string   `yaml:"description"`
-	Mechanism   string   `yaml:"mechanism"`
-}
-
-type After struct {
-	Description string `yaml:"description"`
-	Mechanism   string `yaml:"mechanism"`
-}
-
-type Returns struct {
-	Type   string `yaml:"type"`
-	UsedAs string `yaml:"used_as"`
-}
-
-// ParseFile reads and parses a .testspec.yaml file.
-func ParseFile(path string) (*Spec, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("gen-cases: spec file not found: %s", path)
-	}
-	var s Spec
-	if err := yaml.Unmarshal(data, &s); err != nil {
-		return nil, fmt.Errorf("gen-cases: invalid spec: %w", err)
-	}
-	if err := s.validate(); err != nil {
-		return nil, fmt.Errorf("gen-cases: invalid spec: %w", err)
-	}
-	return &s, nil
+// insertion holds a byte-offset and the content to insert at that offset.
+type insertion struct {
+	content string
+	offset  int
 }
 
 func (s *Spec) validate() error {
@@ -125,8 +55,87 @@ func (s *Spec) validate() error {
 	return nil
 }
 
+// Run executes the gen-cases pipeline for the given spec.
+func (s *Spec) Run(opts Options) error {
+	// 1. Resolve target file
+	targetFile, err := s.resolveTargetFile(opts.Output)
+	if err != nil {
+		return err
+	}
+
+	// 2. Resolve TestXxx name
+	testFuncName := s.resolveTestFuncName()
+
+	if opts.Verbose {
+		fmt.Printf("target file: %s\n", targetFile)
+		fmt.Printf("test func:   %s\n", testFuncName)
+	}
+
+	// 3. Parse existing test file
+	f, fset, src, err := astreader.ParseTestFile(targetFile)
+	if err != nil {
+		return err
+	}
+
+	// 4. Find TestXxx
+	testFunc, err := astreader.FindTestFunc(f, testFuncName)
+	if err != nil {
+		return err
+	}
+
+	// 5. Find tests slice
+	testsSlice, err := astreader.FindTestsSlice(testFunc)
+	if err != nil {
+		return err
+	}
+
+	// 6. Inspect struct fields
+	structFields, err := astreader.InspectTestsStruct(testsSlice)
+	if err != nil {
+		return err
+	}
+
+	// Collect insertions (apply in reverse offset order to preserve positions).
+	var insertions []insertion
+
+	// 7. Fixtures — insert before TestFunc
+	fixtureContent := s.buildFixtureContent(f, opts)
+	if fixtureContent != "" {
+		offset := fset.Position(testFunc.Pos()).Offset
+		insertions = append(insertions, insertion{offset: offset, content: fixtureContent})
+	}
+
+	// 8. Cases — insert before Rbrace of testsSlice
+	caseContent, skipped := s.buildCaseContent(testsSlice, structFields, fset, opts)
+	if caseContent != "" {
+		offset := fset.Position(testsSlice.Rbrace).Offset
+		insertions = append(insertions, insertion{offset: offset, content: caseContent})
+	}
+
+	// Handle --force: replace existing cases
+	replaceOps := s.buildReplaceOps(testsSlice, structFields, fset, opts)
+
+	if opts.Verbose {
+		fmt.Printf("cases generated: %d, skipped (duplicate): %d\n", len(s.Cases)-skipped, skipped)
+	}
+
+	// 9. Apply insertions in reverse offset order
+	result := applyInsertions(src, insertions, replaceOps)
+
+	// 10. Format
+	formatted, err := formatSource(result)
+	if err != nil {
+		// Return unformatted with a warning — still useful for debugging
+		fmt.Printf("warning: format error (output may not be valid Go): %v\n", err)
+		formatted = result
+	}
+
+	// 11. Write or print
+	return writeFile(targetFile, formatted, opts.DryRun)
+}
+
 // CheckTypeByID returns the CheckType with the given ID, or nil.
-func (s *Spec) CheckTypeByID(id string) *CheckType {
+func (s *Spec) checkTypeByID(id string) *CheckType {
 	for i := range s.CheckTypes {
 		if s.CheckTypes[i].ID == id {
 			return &s.CheckTypes[i]
@@ -136,11 +145,71 @@ func (s *Spec) CheckTypeByID(id string) *CheckType {
 }
 
 // CheckByID returns the Check with the given ID, or nil.
-func (s *Spec) CheckByID(id string) *Check {
-	for i := range s.Checks {
-		if s.Checks[i].ID == id {
-			return &s.Checks[i]
+// func (s *Spec) checkByID(id string) *Check {
+// 	for i := range s.Checks {
+// 		if s.Checks[i].ID == id {
+// 			return &s.Checks[i]
+// 		}
+// 	}
+// 	return nil
+// }
+
+// buildFixtureContent generates the string for all new fixtures to insert.
+func (s *Spec) buildFixtureContent(f *ast.File, opts Options) string {
+	var sb strings.Builder
+	for _, fix := range s.Fixtures {
+		if astreader.FindExistingVar(f, fix.Name) {
+			if opts.Verbose {
+				fmt.Printf("fixture %q already exists, skipping\n", fix.Name)
+			}
+			continue
 		}
+		sb.WriteString(fix.generateFixtureDecl(opts.NoHints))
 	}
-	return nil
+	return sb.String()
+}
+
+// buildCaseContent generates the string for all new cases to insert.
+// Returns (content, skippedCount).
+func (s *Spec) buildCaseContent(testsSlice *ast.CompositeLit, structFields []*ast.Field, fset *token.FileSet, opts Options) (string, int) {
+	var sb strings.Builder
+	skipped := 0
+	for i := range s.Cases {
+		c := &s.Cases[i]
+		exists := astreader.FindExistingCase(testsSlice, c.Name)
+		if exists && !opts.Force {
+			if opts.Verbose {
+				fmt.Printf("case %q already exists, skipping (use --force to replace)\n", c.Name)
+			}
+			skipped++
+			continue
+		}
+		if exists && opts.Force {
+			// Handled by replaceOps
+			continue
+		}
+		sb.WriteString(c.GenerateCaseEntry(s, structFields, fset, opts.NoHints))
+	}
+	return sb.String(), skipped
+}
+
+// buildReplaceOps builds replacement operations for --force on existing cases.
+func (s *Spec) buildReplaceOps(testsSlice *ast.CompositeLit, structFields []*ast.Field, fset *token.FileSet, opts Options) []replaceOp {
+	if !opts.Force {
+		return nil
+	}
+	var ops []replaceOp
+	for i := range s.Cases {
+		c := &s.Cases[i]
+		node := astreader.FindExistingCaseNode(testsSlice, c.Name)
+		if node == nil {
+			continue
+		}
+		start := fset.Position(node.Pos()).Offset
+		end := fset.Position(node.End()).Offset
+		content := c.GenerateCaseEntry(s, structFields, fset, opts.NoHints)
+		// Remove trailing comma+newline from content since the original may have it
+		ops = append(ops, replaceOp{start: start, end: end, content: content})
+	}
+	return ops
 }

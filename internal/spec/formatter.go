@@ -1,4 +1,4 @@
-package gencases
+package spec
 
 import (
 	"fmt"
@@ -6,8 +6,8 @@ import (
 	"os"
 )
 
-// Format formats Go source bytes using go/format.
-func Format(src []byte) ([]byte, error) {
+// format formats Go source bytes using go/format.
+func formatSource(src []byte) ([]byte, error) {
 	out, err := format.Source(src)
 	if err != nil {
 		return nil, fmt.Errorf("format: %w", err)
@@ -15,8 +15,8 @@ func Format(src []byte) ([]byte, error) {
 	return out, nil
 }
 
-// WriteFile writes content to path, or prints to stdout on dry-run.
-func WriteFile(path string, content []byte, dryRun bool) error {
+// writeFile writes content to path, or prints to stdout on dry-run.
+func writeFile(path string, content []byte, dryRun bool) error {
 	if dryRun {
 		_, _ = os.Stdout.Write(content)
 		return nil

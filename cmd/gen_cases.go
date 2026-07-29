@@ -6,7 +6,6 @@ package cmd
 import (
 	"errors"
 
-	"github.com/padiazg/go-testgen/internal/gencases"
 	"github.com/padiazg/go-testgen/internal/spec"
 	"github.com/spf13/cobra"
 )
@@ -45,12 +44,12 @@ func runGenCases(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	opts := gencases.Options{
+	opts := spec.Options{
 		DryRun:  gcDryRun,
 		Output:  gcOutput,
 		Force:   gcForce,
 		NoHints: gcNoHints,
 		Verbose: gcVerbose,
 	}
-	return gencases.Run(s, opts)
+	return s.Run(opts)
 }

@@ -9,13 +9,40 @@
 go install golang.org/x/tools/cmd/goimports@latest
 ```
 
-## Install via `go install`
+## Install via curl (Recommended)
+
+Install the pre-built binary with version info stamped via ldflags. Prefer this over `go install` which rebuilds from source and loses version/commit/buildDate stamping.
 
 ```bash
-go install github.com/padiazg/go-testgen@latest
+curl -fsSL https://padiazg.github.io/go-testgen/install.sh | sh
+```
+
+Or install a specific version:
+
+```bash
+curl -fsSL https://padiazg.github.io/go-testgen/install.sh | sh -s -- -v v0.2.1
 ```
 
 The binary is placed in `$GOPATH/bin` (or `$GOBIN` if set). Make sure that directory is in your `PATH`.
+
+## Install via `go install`
+
+```bash
+go install github.com/padiazg/go-testgen/cmd/go-testgen@latest
+```
+
+> **Note:** `go install` rebuilds the binary from source. The version will show as `v0.0.0 unknown unknown` because ldflags are not applied during `go install`. Use the curl installer above for release binaries with proper version info.
+
+The binary is placed in `$GOPATH/bin` (or `$GOBIN` if set). Make sure that directory is in your `PATH`.
+
+## Build from Source
+
+```bash
+git clone https://github.com/padiazg/go-testgen.git
+cd go-testgen
+make build    # outputs to go-testgen
+make install  # installs to $GOPATH/bin
+```
 
 ## Install via Homebrew (macOS and Linux)
 
@@ -32,15 +59,6 @@ brew upgrade go-testgen
 
 The tap repository is at [github.com/padiazg/homebrew-go-testgen](https://github.com/padiazg/homebrew-go-testgen).
 
-## Build from Source
-
-```bash
-git clone https://github.com/padiazg/go-testgen.git
-cd go-testgen
-make build    # outputs to bin/go-testgen
-make install  # installs to $GOPATH/bin
-```
-
 ## Verify Installation
 
 ```bash
@@ -52,10 +70,10 @@ go-testgen version
 Install go-testgen AI agent skills to guide coding assistants in generating test cases:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/padiazg/go-testgen/main/scripts/install.sh | bash
+curl -fsSL https://padiazg.github.io/go-testgen/skills.sh | bash
 ```
 
-Installs `closure-check-tests` and `gen-test-cases` skills into `~/.agents/skills/`. See [AI Agent Skills](../../README.md#ai-agent-skills) for usage details.
+Installs `closure-check-tests` and `gen-test-cases` skills into `~/.agents/skills/`. See [AI Agent Skills](../workflow/adding-test-cases.md#option-a-use-ai-agent-skills-recommended) for usage details.
 
 ## Optional: Project Configuration File
 

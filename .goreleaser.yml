@@ -72,9 +72,16 @@ release:
 
     ### Installation
 
-    Download the appropriate binary for your platform below, or:
+    Install the pre-built binary with version info stamped via ldflags:
+    ```shell
+    curl -fsSL https://padiazg.github.io/go-testgen/install.sh | sh
+    ```
 
-    use Go
+    Or read the full docs at [padiazg.github.io/go-testgen](https://padiazg.github.io/go-testgen).
+
+    ### Development
+
+    Build from source:
     ```shell
     go install github.com/padiazg/go-testgen@{{ .Tag }}
     ```

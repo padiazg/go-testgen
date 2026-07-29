@@ -107,21 +107,9 @@ func runGen(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "FuncInfo:\n%s\n\n", b)
 	}
 
-	testFuncName, isMerge := funcName(info)
-
-	gen, err := getGenerator(cfg)
+	testFuncName, isMerge, formatted, err := formatGen(info, cfg)
 	if err != nil {
-		return fmt.Errorf("create generator: %w", err)
-	}
-
-	result, err := gen.Generate(generator.GenerateRequest{Info: info, IsMerge: isMerge})
-	if err != nil {
-		return fmt.Errorf("generate: %w", err)
-	}
-
-	formatted, err := analyzer.FormatCode(result.Source)
-	if err != nil {
-		formatted = result.Source
+		return err
 	}
 
 	if isMerge && outputFlag == "" {
@@ -138,6 +126,26 @@ func runGen(cmd *cobra.Command, args []string) error {
 	}
 
 	return writeOutput(formatted, outputFlag, info.SourceFile, testFuncName, isMerge, info)
+}
+
+func formatGen(info *analyzer.FuncInfo, cfg *config.Config) (string, bool, []byte, error) {
+	testFuncName, isMerge := funcName(info)
+
+	gen, err := getGenerator(cfg)
+	if err != nil {
+		return "", false, nil, fmt.Errorf("create generator: %w", err)
+	}
+
+	result, err := gen.Generate(generator.GenerateRequest{Info: info, IsMerge: isMerge})
+	if err != nil {
+		return "", false, nil, fmt.Errorf("generate: %w", err)
+	}
+
+	formatted, err := analyzer.FormatCode(result.Source)
+	if err != nil {
+		formatted = result.Source
+	}
+	return testFuncName, isMerge, formatted, err
 }
 
 func funcName(info *analyzer.FuncInfo) (string, bool) {
@@ -344,6 +352,54 @@ func runStandaloneMocks() error {
 		return fmt.Errorf("--output is required in standalone mock mode (no positional args)")
 	}
 
+	outDir := getOutDir()
+
+	for _, rawSpec := range mockFromFlags {
+		if err := writeMock(rawSpec, outDir); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func writeMock(rawSpec string, outDir string) error {
+	ms := parseMockSpec(rawSpec)
+
+	iface, err := getIface(ms, rawSpec)
+	if err != nil {
+		return err
+	}
+
+	formatted, err := formatMock(iface, ms)
+	if err != nil {
+		return err
+	}
+
+	if outputFlag == "-" {
+		mockFile := generator.MockFileName(ms.ifaceName)
+		fmt.Printf("\n// --- mock: %s ---\n", mockFile)
+		_, _ = os.Stdout.Write(formatted)
+		return nil
+	}
+
+	mockFile := filepath.Join(outDir, generator.MockFileName(ms.ifaceName))
+
+	// Don't overwrite existing mock files.
+	if _, err := os.Stat(mockFile); err == nil {
+		fmt.Fprintf(os.Stderr, "mock file %s already exists, skipping\n", mockFile)
+		return nil
+	}
+
+	if err := os.WriteFile(mockFile, formatted, 0644); err != nil {
+		return fmt.Errorf("write mock file %s: %w", mockFile, err)
+	}
+
+	fmt.Fprintf(os.Stderr, "wrote %s\n", mockFile)
+	return nil
+}
+
+func getOutDir() string {
 	outDir := ""
 	if outputFlag != "-" {
 		outDir = filepath.Dir(outputFlag)
@@ -353,59 +409,41 @@ func runStandaloneMocks() error {
 		}
 	}
 
-	for _, rawSpec := range mockFromFlags {
-		ms := parseMockSpec(rawSpec)
+	return outDir
+}
 
-		params := &analyzer.InterfaceParams{
-			IfaceName:        ms.ifaceName,
-			Qualifier:        ms.qualifier,
-			DirectImportPath: ms.importPath,
-		}
-
-		iface, err := analyzer.LoadInterface(params)
-		if err != nil && ms.importPath == "" && ms.qualifier != "" {
-			// Fallback: try qualifier as direct import path.
-			params.DirectImportPath = ms.qualifier
-			params.Qualifier = ""
-			iface, err = analyzer.LoadInterface(params)
-		}
-		if err != nil {
-			return fmt.Errorf("load interface %s: %w", rawSpec, err)
-		}
-
-		src, err := generator.GenerateMock(generator.MockGenRequest{
-			Info:    iface,
-			PkgName: pkgFlag,
-		})
-		if err != nil {
-			return fmt.Errorf("generate mock %s: %w", ms.ifaceName, err)
-		}
-
-		formatted, err := analyzer.FormatCode(src)
-		if err != nil {
-			formatted = src
-		}
-
-		if outputFlag == "-" {
-			mockFile := generator.MockFileName(ms.ifaceName)
-			fmt.Printf("\n// --- mock: %s ---\n", mockFile)
-			_, _ = os.Stdout.Write(formatted)
-			continue
-		}
-
-		mockFile := filepath.Join(outDir, generator.MockFileName(ms.ifaceName))
-
-		// Don't overwrite existing mock files.
-		if _, err := os.Stat(mockFile); err == nil {
-			fmt.Fprintf(os.Stderr, "mock file %s already exists, skipping\n", mockFile)
-			continue
-		}
-
-		if err := os.WriteFile(mockFile, formatted, 0644); err != nil {
-			return fmt.Errorf("write mock file %s: %w", mockFile, err)
-		}
-		fmt.Fprintf(os.Stderr, "wrote %s\n", mockFile)
+func getIface(ms mockSpec, rawSpec string) (*analyzer.InterfaceInfo, error) {
+	params := &analyzer.InterfaceParams{
+		IfaceName:        ms.ifaceName,
+		Qualifier:        ms.qualifier,
+		DirectImportPath: ms.importPath,
 	}
 
-	return nil
+	iface, err := analyzer.LoadInterface(params)
+	if err != nil && ms.importPath == "" && ms.qualifier != "" {
+		// Fallback: try qualifier as direct import path.
+		params.DirectImportPath = ms.qualifier
+		params.Qualifier = ""
+		iface, err = analyzer.LoadInterface(params)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("load interface %s: %w", rawSpec, err)
+	}
+	return iface, nil
+}
+
+func formatMock(iface *analyzer.InterfaceInfo, ms mockSpec) ([]byte, error) {
+	src, err := generator.GenerateMock(generator.MockGenRequest{
+		Info:    iface,
+		PkgName: pkgFlag,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("generate mock %s: %w", ms.ifaceName, err)
+	}
+
+	formatted, err := analyzer.FormatCode(src)
+	if err != nil {
+		formatted = src
+	}
+	return formatted, nil
 }
