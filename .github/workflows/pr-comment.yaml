@@ -38,7 +38,7 @@ jobs:
             const body = fs.readFileSync('pr-comment.md', 'utf8');
             const prNumber = parseInt(fs.readFileSync('pr-number.txt', 'utf8').trim(), 10);
             if (!prNumber) return;
-            const marker = '<!-- go-crap-report -->';
+            const marker = '<!-- go-testgen-report -->';
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
