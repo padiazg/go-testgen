@@ -21,6 +21,16 @@ func DeriveTestPath(sourceFile string) string {
 	return filepath.Join(dir, name+"_test.go")
 }
 
+// DetectTargetPackage reads the package declaration from a Go file.
+func DetectTargetPackage(filePath string) string {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, filePath, nil, parser.ParseComments)
+	if err != nil {
+		return ""
+	}
+	return f.Name.Name
+}
+
 func TestExistsInFile(path, testFuncName string) (bool, error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, path, nil, parser.ParseComments)

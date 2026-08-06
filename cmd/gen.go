@@ -131,6 +131,13 @@ func runGen(cmd *cobra.Command, args []string) error {
 func formatGen(info *analyzer.FuncInfo, cfg *config.Config) (string, bool, []byte, error) {
 	testFuncName, isMerge := funcName(info)
 
+	if isMerge {
+		targetPath := analyzer.DeriveTestPath(info.SourceFile)
+		if pkg := analyzer.DetectTargetPackage(targetPath); pkg != "" {
+			info.TargetPkg = pkg
+		}
+	}
+
 	gen, err := getGenerator(cfg)
 	if err != nil {
 		return "", false, nil, fmt.Errorf("create generator: %w", err)

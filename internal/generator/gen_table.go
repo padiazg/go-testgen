@@ -66,23 +66,27 @@ func (g *TableGenerator) generateTableTest(buf *bytes.Buffer, info *analyzer.Fun
 
 	var setupLines []string
 	var callLine string
+	var callSkipNames []string
 
 	if constructor {
 		resultVarName := strings.ToLower(info.Results[0].TypeName[1:])
 		if info.HasError {
-			returnVars := buildReturnVars(info.Results, g.cfg.ResultVarName, g.cfg.ErrorVarName)
+			returnVars := buildReturnVars(info.Results, g.cfg.ResultVarName, g.cfg.ErrorVarName, callSkipNames...)
 			setupLines = append(setupLines, fmt.Sprintf("%s := New(%s)", strings.Join(returnVars, ", "), "tt."+info.Params[0].Name))
 		} else {
 			setupLines = append(setupLines, fmt.Sprintf("%s := New(%s)", resultVarName, "tt."+info.Params[0].Name))
 		}
 	} else if info.IsMethod {
-		setupLines = append(setupLines, buildReceiverInit(info, recvVar))
+		if info.FactoryReturnsError && info.HasError {
+			callSkipNames = append(callSkipNames, "err")
+		}
+		setupLines = append(setupLines, buildReceiverInit(info, recvVar, callSkipNames...))
 		if len(info.Params) > 0 {
 			setupLines = append(setupLines, fmt.Sprintf("if tt.before != nil {\n\t\t\ttt.before(%s)\n\t\t}", recvVar))
 		}
-		callLine = g.buildCallLine(info, recvVar+"."+info.Name, args)
+		callLine = g.buildCallLine(info, recvVar+"."+info.Name, args, callSkipNames...)
 	} else {
-		callLine = g.buildCallLine(info, info.Name, args)
+		callLine = g.buildCallLine(info, info.Name, args, callSkipNames...)
 	}
 
 	if callLine != "" {
@@ -190,9 +194,9 @@ func (g *TableGenerator) buildWantFieldsAndAssert(info *analyzer.FuncInfo, const
 }
 
 // buildCallLine generates the assignment line for capturing return values.
-func (g *TableGenerator) buildCallLine(info *analyzer.FuncInfo, callExpr string, args []string) string {
+func (g *TableGenerator) buildCallLine(info *analyzer.FuncInfo, callExpr string, args []string, skipNames ...string) string {
 	call := callExpr + "(" + strings.Join(args, ", ") + ")"
-	returnVars := buildReturnVars(info.Results, g.cfg.ResultVarName, g.cfg.ErrorVarName)
+	returnVars := buildReturnVars(info.Results, g.cfg.ResultVarName, g.cfg.ErrorVarName, skipNames...)
 	if len(returnVars) == 0 {
 		return call
 	}

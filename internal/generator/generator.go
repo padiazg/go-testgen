@@ -176,7 +176,11 @@ func generateTestTable(buf *bytes.Buffer, checkTypeName, checkVarName string, in
 		setupLines = append(setupLines, fmt.Sprintf("%s := New(%s)", resultVars, "tt."+info.Params[0].Name))
 
 	case info.IsMethod:
-		setupLines = append(setupLines, buildReceiverInit(info, recvVar))
+		var skipNames []string
+		if info.FactoryReturnsError && info.HasError {
+			skipNames = append(skipNames, "err")
+		}
+		setupLines = append(setupLines, buildReceiverInit(info, recvVar, skipNames...))
 
 		if len(info.Params) > 0 {
 			setupLines = append(setupLines, fmt.Sprintf("if tt.before != nil {\n\t\t\ttt.before(%s)\n\t\t}", recvVar))
@@ -184,7 +188,7 @@ func generateTestTable(buf *bytes.Buffer, checkTypeName, checkVarName string, in
 
 		callExpr := recvVar + "." + info.Name + "(" + strings.Join(args, ", ") + ")"
 
-		returnVars := buildReturnVars(info.Results, cfg.ResultVarName, cfg.ErrorVarName)
+		returnVars := buildReturnVars(info.Results, cfg.ResultVarName, cfg.ErrorVarName, skipNames...)
 		if len(returnVars) > 0 {
 			setupLines = append(setupLines, fmt.Sprintf("%s := %s", strings.Join(returnVars, ", "), callExpr))
 			resultVars = strings.Join(returnVars, ", ")

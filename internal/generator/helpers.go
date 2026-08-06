@@ -14,7 +14,16 @@ func CollectImports(info *analyzer.FuncInfo) map[string]string {
 	result := make(map[string]string)
 
 	add := func(importPath, pkgAlias string) {
-		if importPath == "" || importPath == info.ImportPath || importPath == "context" {
+		if importPath == "" || importPath == "context" {
+			return
+		}
+		// When merging into X_test, also import the source package.
+		if importPath == info.ImportPath && info.TargetPkg != "" && info.TargetPkg != info.Package {
+			parts := strings.Split(importPath, "/")
+			result[importPath] = parts[len(parts)-1]
+			return
+		}
+		if importPath == info.ImportPath {
 			return
 		}
 		alias := ""
@@ -92,12 +101,19 @@ func qualifiedTypeName(typeName, pkgQualifier string) string {
 
 // buildReturnVars builds the list of variable names for capturing function return values.
 // Multiple non-error results get distinct names (r, r2, r3...).
-func buildReturnVars(results []analyzer.ResultInfo, resultVarName, errorVarName string) []string {
+// Additional var names can be passed to skip collision (e.g. "err" already used by factory).
+func buildReturnVars(results []analyzer.ResultInfo, resultVarName, errorVarName string, skipNames ...string) []string {
 	var vars []string
 	nonErrIdx := 0
+	errVarName := errorVarName
+	for _, n := range skipNames {
+		if n == "err" {
+			errVarName = "err2"
+		}
+	}
 	for _, r := range results {
 		if r.IsError {
-			vars = append(vars, errorVarName)
+			vars = append(vars, errVarName)
 		} else {
 			if nonErrIdx == 0 {
 				vars = append(vars, resultVarName)
@@ -122,6 +138,19 @@ func deriveOutFile(info *analyzer.FuncInfo) string {
 		return strings.ToLower(info.Receiver.TypeName) + "_test.go"
 	}
 	return info.Name + "_test.go"
+}
+
+// qualifyForExternalTest qualifies a same-package type reference for use in an X_test package.
+// E.g., "ProductRepository" -> "database.ProductRepository" when TargetPkg == "database_test"
+// and infoPkg == "database". Returns the original typeName if no qualification needed.
+func qualifyForExternalTest(typeName, pkgQualifier, infoPkg, targetPkg string) string {
+	if targetPkg == "" || targetPkg == infoPkg {
+		return typeName
+	}
+	if pkgQualifier != "" {
+		return typeName // already qualified via import alias
+	}
+	return qualifiedTypeName(typeName, infoPkg)
 }
 
 // generateImports builds the full import block string for a new test file.
@@ -213,36 +242,58 @@ func placeholderValue(typeName string) string {
 		return "nil"
 	case typeName == "error":
 		return "nil"
+	case strings.HasPrefix(typeName, "float"):
+		return "0"
+	case strings.HasPrefix(typeName, "uint"):
+		return "0"
+	case strings.HasPrefix(typeName, "byte") || typeName == "rune":
+		return "0"
+	case strings.HasPrefix(typeName, "uintptr"):
+		return "0"
 	default:
 		return "nil"
 	}
 }
 
 // buildTableFields builds the struct field list for a table-driven test.
-// Skips context params; adds before func for methods.
+// Skips context params; adds before func for methods; adds factory params for methods with factories.
 func buildTableFields(info *analyzer.FuncInfo, extraFields ...string) []string {
 	fields := []string{"name string"}
+
+	qualify := func(typeName, pkgQualifier string) string {
+		return qualifyForExternalTest(typeName, pkgQualifier, info.Package, info.TargetPkg)
+	}
 
 	if info.IsMethod {
 		for _, p := range info.Params {
 			if p.IsContext {
 				continue
 			}
-			fields = append(fields, fmt.Sprintf("%s %s", p.Name, qualifiedTypeName(p.TypeName, p.Package)))
+			fields = append(fields, fmt.Sprintf("%s %s", p.Name, qualify(p.TypeName, p.Package)))
 		}
 	} else {
 		for _, p := range info.Params {
 			if p.IsContext {
 				continue
 			}
-			fields = append(fields, fmt.Sprintf("%s %s", p.Name, qualifiedTypeName(p.TypeName, p.Package)))
+			fields = append(fields, fmt.Sprintf("%s %s", p.Name, qualify(p.TypeName, p.Package)))
 		}
 	}
 
 	fields = append(fields, extraFields...)
 
+	if info.IsMethod && info.FactoryFunc != "" {
+		for _, p := range info.FactoryParams {
+			if p.IsContext {
+				continue
+			}
+			fields = append(fields, fmt.Sprintf("%s %s", p.Name, qualify(p.TypeName, p.Package)))
+		}
+	}
+
 	if info.IsMethod {
-		fields = append(fields, fmt.Sprintf("before func(*%s)", info.Receiver.TypeName))
+		recvQual := qualify(info.Receiver.TypeName, "")
+		fields = append(fields, fmt.Sprintf("before func(*%s)", recvQual))
 	}
 
 	return fields
@@ -281,25 +332,46 @@ func receiverVar(info *analyzer.FuncInfo) string {
 }
 
 // buildReceiverInit returns the code to instantiate the receiver for a method test.
-func buildReceiverInit(info *analyzer.FuncInfo, varName string) string {
+// skipNames are variable names that are already used and should be skipped to avoid collisions
+// (e.g. "err" already declared by a subsequent method call).
+func buildReceiverInit(info *analyzer.FuncInfo, varName string, skipNames ...string) string {
 	recvType := info.Receiver.TypeName
+	// Check if "err" should be skipped.
+	errInUse := false
+	for _, n := range skipNames {
+		if n == "err" {
+			errInUse = true
+			break
+		}
+	}
+
+	// Qualify receiver/factory for X_test packages.
+	recvQual := qualifyForExternalTest(recvType, "", info.Package, info.TargetPkg)
+	factoryQual := info.FactoryFunc
+	if info.TargetPkg != "" && info.TargetPkg != info.Package && info.FactoryFunc != "" {
+		factoryQual = qualifiedTypeName(info.FactoryFunc, info.Package)
+	}
+
 	if info.FactoryFunc != "" {
-		// Build arguments using placeholder values based on param types
+		// Use table fields for factory params when they're exposed (non-context params).
 		var args []string
 		for _, p := range info.FactoryParams {
 			if p.IsContext {
 				continue
 			}
-			args = append(args, placeholderValue(p.TypeName))
+			args = append(args, "tt."+p.Name)
 		}
 		argList := strings.Join(args, ", ")
-		if info.FactoryReturnsError {
-			return fmt.Sprintf("%s, err := %s(%s)", varName, info.FactoryFunc, argList)
+		if info.FactoryReturnsError && !errInUse {
+			return fmt.Sprintf("%s, err := %s(%s)", varName, factoryQual, argList)
 		}
-		return fmt.Sprintf("%s := %s(%s)", varName, info.FactoryFunc, argList)
+		return fmt.Sprintf("%s := %s(%s)", varName, factoryQual, argList)
 	}
 	if info.Receiver.IsPointer {
-		return fmt.Sprintf("%s := &%s{}", varName, recvType)
+		return fmt.Sprintf("%s := &%s{}", varName, recvQual)
 	}
-	return fmt.Sprintf("%s := %s{}", varName, recvType)
+	if info.Receiver.Kind == "basic" {
+		return fmt.Sprintf("%s := %s(0)", varName, recvQual)
+	}
+	return fmt.Sprintf("%s := %s{}", varName, recvQual)
 }
