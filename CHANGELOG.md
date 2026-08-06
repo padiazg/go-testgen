@@ -5,6 +5,24 @@ All notable changes to go-testgen will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v0.2.2 - [unreleased]
+
+### Fixed
+
+- `gen`: factory function parameters are now exposed as table fields (e.g. `tt.path`, `tt.exclude`) so each test case can configure them independently, instead of using inline placeholder values
+- `gen`: methods on basic-type receivers (e.g. `type Level int`) are initialized with `Type(0)` instead of the invalid `Type{}`
+- `gen`: `placeholderValue` now returns numeric zero (`0`) for `float64`, `uint`, `byte`, `rune`, and `uintptr` instead of `nil`
+- `gen`: avoids variable name collision when both a factory function and the method return `error` — factory uses `err`, method call uses `err2`
+- `gen`: when merging into an existing `package X_test` file, same-package type references are qualified (e.g. `ProductRepository` → `database.ProductRepository`) and the source package is imported automatically
+- Analyzer: expands multi-name result fields (`line, col int`) into separate `ResultInfo` entries, fixing incorrect capture variables for functions like `(line, col int)`
+- Analyzer: renders full function-signature types for func params/results (e.g. `func(dir string) bool` instead of `func()`)
+- Analyzer: adds `Receiver.Kind` field (`"basic"`, `"struct"`, or `""`) to identify receiver type category
+
+### Added
+
+- `FuncInfo.TargetPkg` — target test package name used during smart merge into existing test files
+- `DetectTargetPackage()` — helper to detect the package declaration of a Go file for X_test merge qualification
+
 ## v0.2.1 - 2026-06-16
 
 ### Added
@@ -19,16 +37,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gen` command now accepts zero positional args when `--mock-from` is present (standalone mode)
 - `--mock-from` help text documents all 4 spec formats
 
-## v0.2.0 - 2026-06-16
+## v0.1.5 - 2026-06-16
 
 ### Added
 
 - AI agent skills — `skills/` directory promoted to root with `<name>/SKILL.md` structure for OpenCode, Claude Code, Cursor, Codex, Gemini compatibility
 - `scripts/install.sh` → `doc/docs/skills.sh` — `curl | bash` installer for AI agent skills, moved to docs for GH Pages publishing
 - `README.md` — AI Agent Skills section updated with `curl | bash` install command
-- Fixed-size array parameter detection — `[N]T` params now correctly identified in analyzer
-- `HasArrayResult` flag on `FuncSummary` and `ScanResult` for array return type detection
-- `SuggestStyle` now recommends `check` style for functions returning arrays (like slices)
 - `gen-cases` experimental command — reads a `.testspec.yaml` and materializes test case entries into an existing `_test.go`
   - Inserts struct literal entries into the `tests` slice with correct field values from the spec
   - Generates `before`/`after` function stubs with signature inferred from the existing AST
@@ -38,6 +53,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Resolves target `_test.go` automatically from package + function name (override with `--output`)
   - `internal/spec` package — YAML types and `ParseFile()` for `.testspec.yaml` format
   - `internal/gencases` package — AST-based analysis + text-based insertion pipeline
+
+### Fixed
+
+- Fixed-size array parameter detection — `[N]T` params now correctly identified in analyzer
+- `HasArrayResult` flag on `FuncSummary` and `ScanResult` for array return type detection
+- `SuggestStyle` now recommends `check` style for functions returning arrays (like slices)
+- `typeToString` now preserves array length (e.g. `[100]T` instead of `[]T`) for both parameters and results
+- `extractTypePrefix` handles `[N]` prefix, enabling correct identification of array params/results
+- `qualifiedTypeName` correctly drills into array element types for package qualification
+- `placeholderValue` generates `[N]T{}` zero-value literals for arrays instead of invalid `nil`
+- `inspectSignature` detects `[N]` arrays when checking `HasSliceResult` fallback
+- Added unit tests for `qualifiedTypeName` and `placeholderValue` with array types
+
+### Changed
+
+- Moved `research/skills/` → `skills/` (first-class citizen at repo root)
+- `skills/AGENTS.md` — paths updated to reflect new skill locations
+- `README.md` — AI Agent Skills section updated with `curl | bash` install command
+
+### Removed
+
+- Removed stale root `skills/` directory (had corrupt `gen-test-cases` content)
+
+## v0.1.4 - 2026-06-16
+
+### Added
+
+- Fixed-size array parameter detection — `[N]T` params now correctly identified in analyzer
+- `HasArrayResult` flag on `FuncSummary` and `ScanResult` for array return type detection
+- `SuggestStyle` now recommends `check` style for functions returning arrays (like slices)
 
 ### Fixed
 

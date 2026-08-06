@@ -40,18 +40,22 @@ func checkServiceCreateUserError(want string) checkServiceCreateUserFn {
 func TestService_CreateUser(t *testing.T) {
     tests := []struct {
         name   string
+        cfg    *Config
         req    *userDomain.UserCreateRequest
         before func(*Service)
         checks []checkServiceCreateUserFn
     }{
         {
             name:   "success case",
+            cfg:    &Config{Endpoint: "http://localhost:8080"},
+            req:    &userDomain.UserCreateRequest{Name: "alice"},
             checks: checkServiceCreateUser(
                 checkServiceCreateUserError(""),
             ),
         },
         {
             name:   "fail case",
+            cfg:    &Config{Endpoint: "http://localhost:8080"},
             checks: checkServiceCreateUser(
                 checkServiceCreateUserError("expected error message"),
             ),
@@ -60,13 +64,13 @@ func TestService_CreateUser(t *testing.T) {
     for _, tt := range tests {
         tt := tt
         t.Run(tt.name, func(t *testing.T) {
-            s := New(nil)
+            s, err := New(tt.cfg)
             if tt.before != nil {
                 tt.before(s)
             }
-            r, err := s.CreateUser(context.Background(), tt.req)
+            r, err2 := s.CreateUser(context.Background(), tt.req)
             for _, c := range tt.checks {
-                c(t, r, err)
+                c(t, r, err2)
             }
         })
     }

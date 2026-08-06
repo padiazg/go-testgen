@@ -213,25 +213,28 @@ func checkCreateUserError(want string) checkServiceCreateUserFn {
 func TestService_CreateUser(t *testing.T) {
     tests := []struct {
         name    string
+        cfg     *Config            // factory param as table field
         req     *userDomain.UserCreateRequest
         before  func(*Service)
         checks  []checkServiceCreateUserFn
     }{
         {
             name:   "TODO: success case",
+            cfg:    &Config{Endpoint: "http://localhost:8080"},
+            req:    &userDomain.UserCreateRequest{Name: "alice"},
             checks: checkServiceCreateUser(),
         },
     }
     for _, tt := range tests {
         tt := tt
         t.Run(tt.name, func(t *testing.T) {
-            s := New(nil)
+            s, err := New(tt.cfg)
             if tt.before != nil {
                 tt.before(s)
             }
-            r, err := s.CreateUser(context.Background(), tt.req)
+            r, err2 := s.CreateUser(context.Background(), tt.req)
             for _, c := range tt.checks {
-                c(t, r, err)
+                c(t, r, err2)
             }
         })
     }
@@ -244,6 +247,9 @@ Key properties:
 - The `before` hook sets up mock expectations per test case.
 - The check function signature mirrors the function's full return list (including `error`).
 - Context parameters are injected automatically (`context.Background()`), not exposed in the table.
+- Factory function parameters are exposed as table fields (`tt.<param>`), not inline placeholders.
+- Basic-type receivers (e.g. `type Level int`) are initialized with `Type(0)`.
+- Multi-name return values (`line, col int`) are expanded into separate capture variables.
 
 ## Generated mock style
 
@@ -355,6 +361,46 @@ go-testgen gen-cases ./internal/core/services/user/service_create_user.testspec.
 # 5. Run tests
 go test ./internal/core/services/user/...
 ```
+
+## AI Skills
+
+The `skills/` directory contains 35 AI coding agent skills derived from the [unit-test-book](https://github.com/padiazg/unit-test-book). Each skill describes a testing pattern, the `go-testgen` style to apply, and example code from the book's chapters.
+
+```
+skills/
+├── testgen-scenario/          ← router: detects which pattern matches a function
+├── shared/scenario-map.md     ← lookup table for the router
+├── pattern-01-table-validation/
+├── pattern-02-value-assertions/
+├── ...
+├── pattern-35-capturing-stdout/
+├── closure-check-tests/       ← closure-check style reference
+└── gen-test-cases/            ← go-testgen gen usage guide
+```
+
+### Generate skills from chapters
+
+Skills are generated from the unit-test-book chapters using a Python pipeline:
+
+```bash
+# From the unit-test-book repo
+cd unit-test-book
+make skills                    # generates all 35 pattern stubs + router + manifests
+make skills-validate           # validates manifest, files, plugin version sync
+python3 doc/generate_skill_bodies.py  # fills each skill body from chapter READMEs
+```
+
+Each skill follows a standard structure:
+
+- **When to use** — paraphrased from the chapter's Description
+- **go-testgen style** — `table`, `check`, `simple`, or `manual`
+- **Pattern** — Code and Test blocks from the chapter README
+- **Fill the cases** — Testing Approach summarized as bullet points
+- **Cross-references** — link back to the source chapter
+
+The manifest (`doc/skills-manifest.yaml`) controls routing: style, scenario description, and route keys for the router to match function signatures.
+
+For details on the maintenance workflow, see [MAINTAIN-SKILLS.md](doc/MAINTAIN-SKILLS.md).
 
 ## Full Documentation
 

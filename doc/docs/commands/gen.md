@@ -97,14 +97,46 @@ go-testgen falls back to treating the qualifier as a direct import path.
 
 ## Factory Function Instantiation
 
-When generating tests for methods, go-testgen looks for a factory function (e.g., `NewClient`, `NewService`) that returns a pointer to the receiver type. If found, the test instantiates the receiver using the factory function with placeholder values matching each parameter's type:
+When generating tests for methods, go-testgen looks for a factory function (e.g., `NewClient`, `NewService`) that returns a pointer to the receiver type. If found, the factory parameters are **added as table fields** so each test case can configure them independently:
 
-- `string` → `"value"`
-- `int`/`int64` → `0`
-- `bool` → `false`
-- Other types → `nil`
+```go
+tests := []struct {
+    name    string
+    config  *Config          // factory param from NewConfig(cfg *Config)
+    timeout time.Duration  // factory param from NewScanner(timeout time.Duration)
+    before  func(*Scanner)
+    checks  []checkDispatchFn
+}{
+    {
+        name:    "with config",
+        config:  &Config{Endpoint: "http://localhost:8080"},
+        timeout: time.Second * 30,
+        checks:  checkDispatch(fn1),
+    },
+}
+```
 
-This produces idiomatic initialization instead of `&Type{}` or `Type{}`. Replace placeholders with actual test values before running tests.
+Each factory parameter becomes a typed field in the table struct (context parameters are skipped). The factory is called with `tt.<param>` values at runtime.
+
+### Basic-Type Receivers
+
+When the receiver is a basic type (`int`, `uint`, `float`, `bool`, `string`, `byte`, `rune`, `uintptr`), go-testgen initializes it as `TypeName(0)` instead of the invalid `TypeName{}`:
+
+```go
+// type Level int
+s := Level(0)
+```
+
+For pointer receivers (`*T`) and struct receivers (`T`), initialization is `&T{}` / `T{}` as before.
+
+### Error Collision Handling
+
+When both the factory function and the method return `error`, go-testgen avoids variable name collision: the factory uses `err` and the method call uses `err2`:
+
+```go
+s, err := NewConfig(tt.config)
+s, err2 := s.Dispatch(context.Background())
+```
 
 ## Test Styles
 

@@ -24,6 +24,7 @@ Output (abbreviated):
   "IsMethod": true,
   "Receiver": {
     "TypeName": "Service",
+    "Kind": "struct",
     "IsPointer": true,
     "Fields": [...]
   },
@@ -54,6 +55,16 @@ Output (abbreviated):
   "HasContext": true
 }
 ```
+
+### Receiver Kind
+
+`Receiver.Kind` indicates the receiver type category:
+
+| Kind | Meaning | Example |
+|------|---------|---------|
+| `"basic"` | Basic types | `int`, `uint`, `float64`, `bool`, `string`, `byte`, `rune` |
+| `"struct"` | Struct or array | `*Service`, `[100]byte`, `MyStruct` |
+| `""` | Unknown (e.g. from type parameters) | — |
 
 ## When to Use
 
