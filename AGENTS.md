@@ -138,3 +138,8 @@ npm install -g @vscode/vsce
 vsce package
 vsce publish  # requires Microsoft account
 ```
+
+## Future enhancements (v2)
+
+### X_test (external test package) generation
+Currently `go-testgen` generates new test files in the same package as the source. When merging into an existing `package X_test` file, same-package refs are qualified (option A, v1). A future enhancement would generate new test files in `package X_test` (option B) via config/flag, for repos that prefer external test packages. Would require: auto-detecting existing `X_test` sibling files, emitting `package X_test`, qualifying all same-package types/constructors, and injecting the source package import.

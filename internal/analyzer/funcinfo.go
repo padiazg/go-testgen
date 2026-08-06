@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+//nolint:structalignment
 type FuncInfo struct {
 	ImportAliases       map[string]string // importPath -> local alias
 	Receiver            *ReceiverInfo
@@ -22,10 +23,12 @@ type FuncInfo struct {
 	HasContext          bool
 	HasError            bool
 	IsMethod            bool
+	TargetPkg           string // package name of the target test file (for X_test qualification)
 }
 
 type ReceiverInfo struct {
 	TypeName  string
+	Kind      string // "basic" for int/uint/float/bool/string/byte/rune, "struct" for struct/array, "" for unknown
 	Fields    []FieldInfo
 	IsPointer bool
 }

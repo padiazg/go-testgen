@@ -72,8 +72,12 @@ func (g *SimpleGenerator) generateSimpleTest(buf *bytes.Buffer, info *analyzer.F
 		}
 		assertBlock = g.buildAssertBlock(info, resultVarName)
 	} else if info.IsMethod {
-		arrangeLine = buildReceiverInit(info, recvVar)
-		actBlock = g.buildCallLine(info, recvVar+"."+info.Name, args, cfg)
+		var skipNames []string
+		if info.FactoryReturnsError && info.HasError {
+			skipNames = append(skipNames, "err")
+		}
+		arrangeLine = buildReceiverInit(info, recvVar, skipNames...)
+		actBlock = g.buildCallLine(info, recvVar+"."+info.Name, args, cfg, skipNames...)
 		assertBlock = g.buildAssertBlock(info, "")
 	} else {
 		actBlock = g.buildCallLine(info, info.Name, args, cfg)
@@ -104,9 +108,9 @@ func (g *SimpleGenerator) generateSimpleTest(buf *bytes.Buffer, info *analyzer.F
 }
 
 // buildCallLine returns the act line capturing return values (or just the call).
-func (g *SimpleGenerator) buildCallLine(info *analyzer.FuncInfo, callExpr string, args []string, cfg *config.Config) string {
+func (g *SimpleGenerator) buildCallLine(info *analyzer.FuncInfo, callExpr string, args []string, cfg *config.Config, skipNames ...string) string {
 	call := callExpr + "(" + strings.Join(args, ", ") + ")"
-	returnVars := buildReturnVars(info.Results, cfg.ResultVarName, cfg.ErrorVarName)
+	returnVars := buildReturnVars(info.Results, cfg.ResultVarName, cfg.ErrorVarName, skipNames...)
 	if len(returnVars) == 0 {
 		return call
 	}
