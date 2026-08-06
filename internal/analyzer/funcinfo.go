@@ -7,23 +7,23 @@ import (
 
 //nolint:structalignment
 type FuncInfo struct {
-	ImportAliases       map[string]string // importPath -> local alias
 	Receiver            *ReceiverInfo
+	ImportAliases       map[string]string
+	TargetPkg           string
 	Doc                 string
-	FactoryFunc         string // factory function name for methods (e.g., "NewClient")
+	FactoryFunc         string
 	ImportPath          string
 	Name                string
 	Package             string
 	SourceFile          string
-	FactoryParams       []ParamInfo // factory function parameters (captured for proper instantiation)
-	Imports             []string
+	FactoryParams       []ParamInfo
 	Params              []ParamInfo
 	Results             []ResultInfo
-	FactoryReturnsError bool // whether the factory function returns an error
+	Imports             []string
+	FactoryReturnsError bool
 	HasContext          bool
 	HasError            bool
 	IsMethod            bool
-	TargetPkg           string // package name of the target test file (for X_test qualification)
 }
 
 type ReceiverInfo struct {
