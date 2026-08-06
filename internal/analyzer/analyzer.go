@@ -36,8 +36,17 @@ func analyzerInfoFromParams(info *FuncInfo, pkg *packages.Package, list []*ast.F
 
 func analyzerInfoFromResults(info *FuncInfo, pkg *packages.Package, list []*ast.Field) {
 	for _, result := range list {
-		ri := resolveResultInfo(result, pkg)
-		info.Results = append(info.Results, ri)
+		if len(result.Names) <= 1 {
+			ri := resolveResultInfo(result, pkg)
+			info.Results = append(info.Results, ri)
+		} else {
+			// Multi-name result: "line, col int" → expand to separate ResultInfo.
+			for _, name := range result.Names {
+				single := &ast.Field{Names: []*ast.Ident{name}, Type: result.Type}
+				ri := resolveResultInfo(single, pkg)
+				info.Results = append(info.Results, ri)
+			}
+		}
 	}
 
 	if len(info.Results) > 0 {
