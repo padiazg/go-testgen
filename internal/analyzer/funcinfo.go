@@ -26,6 +26,7 @@ type FuncInfo struct {
 
 type ReceiverInfo struct {
 	TypeName  string
+	Kind      string // "basic" for int/uint/float/bool/string/byte/rune, "struct" for struct/array, "" for unknown
 	Fields    []FieldInfo
 	IsPointer bool
 }

@@ -90,6 +90,7 @@ func analyzerGetFn(info *FuncInfo, pkg *packages.Package) *ast.FuncDecl {
 				}
 
 				info.Receiver.IsPointer = isPointer
+				info.Receiver.Kind = receiverKind(pkg, fn.Recv.List[0].Type, recvType)
 
 				// Find factory function for this receiver type
 				info.FactoryFunc, info.FactoryParams, info.FactoryReturnsError = findFactoryFunc(pkg, recvType)
@@ -123,7 +124,7 @@ func Load(pkgPattern, funcSpec string) (*FuncInfo, error) {
 
 	info := analyzerNewInfo(funcSpec)
 
-	sourceFile, err := FindFileInSrc(pkgPattern, info.Name)
+	sourceFile, err := FindFileInSrc(pkgPattern, info.Name, info.Receiver.TypeName)
 	if err != nil {
 		return nil, fmt.Errorf("find source file: %w", err)
 	}
@@ -422,7 +423,41 @@ func typeToString(expr ast.Expr) string {
 			return "chan " + typeToString(t.Value)
 		}
 	case *ast.FuncType:
-		return "func()"
+		var paramStrs []string
+		if t.Params != nil {
+			for _, field := range t.Params.List {
+				if len(field.Names) > 0 {
+					for _, name := range field.Names {
+						paramStrs = append(paramStrs, name.Name+" "+typeToString(field.Type))
+					}
+				} else {
+					paramStrs = append(paramStrs, typeToString(field.Type))
+				}
+			}
+		}
+
+		var retStrs []string
+		if t.Results != nil {
+			for _, field := range t.Results.List {
+				if len(field.Names) > 0 {
+					for _, name := range field.Names {
+						retStrs = append(retStrs, name.Name+" "+typeToString(field.Type))
+					}
+				} else {
+					retStrs = append(retStrs, typeToString(field.Type))
+				}
+			}
+		}
+
+		sig := "func(" + strings.Join(paramStrs, ", ") + ")"
+		if len(retStrs) > 0 {
+			if len(retStrs) == 1 {
+				sig += " " + retStrs[0]
+			} else {
+				sig += " (" + strings.Join(retStrs, ", ") + ")"
+			}
+		}
+		return sig
 	case *ast.InterfaceType:
 		return "interface{}"
 	case *ast.StructType:
@@ -488,7 +523,7 @@ func ParseFile(path string) (*ast.File, *token.FileSet, error) {
 	return f, fset, nil
 }
 
-func FindFileInSrc(pkgPattern, funcName string) (string, error) {
+func FindFileInSrc(pkgPattern, funcName string, receiverType string) (string, error) {
 	cfg := &packages.Config{
 		Mode: packages.NeedFiles,
 	}
@@ -510,9 +545,21 @@ func FindFileInSrc(pkgPattern, funcName string) (string, error) {
 
 		for _, decl := range file.Decls {
 			if fn, ok := decl.(*ast.FuncDecl); ok {
-				if fn.Name.Name == funcName {
-					return f, nil
+				if fn.Name.Name != funcName {
+					continue
 				}
+				// For methods, also match the receiver type.
+				if receiverType != "" {
+					if fn.Recv == nil || len(fn.Recv.List) == 0 {
+						continue
+					}
+					recvType := typeExprToString(fn.Recv.List[0].Type)
+					recvType = strings.TrimPrefix(recvType, "*")
+					if recvType != receiverType {
+						continue
+					}
+				}
+				return f, nil
 			}
 		}
 	}
@@ -583,4 +630,27 @@ func factoryParams(fn *ast.FuncDecl, pkg *packages.Package) ([]ParamInfo, bool) 
 		returnsError = secondType == "error"
 	}
 	return factoryParams, returnsError
+}
+
+// receiverKind returns the kind of the receiver type: "basic" for int/uint/float/bool/string/byte/rune,
+// "struct" for struct/array, or "" for unknown (e.g. from type parameters).
+func receiverKind(pkg *packages.Package, recvExpr ast.Expr, typeName string) string {
+	if pkg == nil || pkg.TypesInfo == nil {
+		return ""
+	}
+
+	t := pkg.TypesInfo.TypeOf(recvExpr)
+	if t == nil {
+		return ""
+	}
+
+	// Unwrap pointer to get the underlying type.
+	underlying := t.Underlying()
+	switch underlying.(type) {
+	case *types.Basic:
+		return "basic"
+	case *types.Array, *types.Struct:
+		return "struct"
+	}
+	return ""
 }
