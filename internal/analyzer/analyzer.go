@@ -123,7 +123,7 @@ func Load(pkgPattern, funcSpec string) (*FuncInfo, error) {
 
 	info := analyzerNewInfo(funcSpec)
 
-	sourceFile, err := FindFileInSrc(pkgPattern, info.Name)
+	sourceFile, err := FindFileInSrc(pkgPattern, info.Name, info.Receiver.TypeName)
 	if err != nil {
 		return nil, fmt.Errorf("find source file: %w", err)
 	}
@@ -488,7 +488,7 @@ func ParseFile(path string) (*ast.File, *token.FileSet, error) {
 	return f, fset, nil
 }
 
-func FindFileInSrc(pkgPattern, funcName string) (string, error) {
+func FindFileInSrc(pkgPattern, funcName string, receiverType string) (string, error) {
 	cfg := &packages.Config{
 		Mode: packages.NeedFiles,
 	}
@@ -510,9 +510,21 @@ func FindFileInSrc(pkgPattern, funcName string) (string, error) {
 
 		for _, decl := range file.Decls {
 			if fn, ok := decl.(*ast.FuncDecl); ok {
-				if fn.Name.Name == funcName {
-					return f, nil
+				if fn.Name.Name != funcName {
+					continue
 				}
+				// For methods, also match the receiver type.
+				if receiverType != "" {
+					if fn.Recv == nil || len(fn.Recv.List) == 0 {
+						continue
+					}
+					recvType := typeExprToString(fn.Recv.List[0].Type)
+					recvType = strings.TrimPrefix(recvType, "*")
+					if recvType != receiverType {
+						continue
+					}
+				}
+				return f, nil
 			}
 		}
 	}
