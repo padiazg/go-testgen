@@ -95,6 +95,10 @@ func generateCheckType(buf *bytes.Buffer, checkTypeName, checkVarName string, in
 	var paramList []string
 	paramList = append(paramList, "*testing.T")
 
+	if info.IsMethod && info.Receiver != nil {
+		paramList = append(paramList, receiverParamType(info))
+	}
+
 	for _, res := range info.Results {
 		paramList = append(paramList, qualifiedTypeName(res.TypeName, res.Package))
 	}
@@ -114,6 +118,11 @@ var {{.CheckVarName}} = func(fns ...{{.CheckTypeName}}) []{{.CheckTypeName}} { r
 func generateCheckError(buf *bytes.Buffer, checkTypeName string, info *analyzer.FuncInfo) error {
 	var params []string
 	params = append(params, "t *testing.T")
+
+	if info.IsMethod && info.Receiver != nil {
+		params = append(params, receiverVar(info)+" "+receiverParamType(info))
+	}
+
 	errVarName := "err"
 	for _, r := range info.Results {
 		typeName := qualifiedTypeName(r.TypeName, r.Package)
@@ -161,16 +170,19 @@ func generateTestTable(buf *bytes.Buffer, checkTypeName, checkVarName string, in
 	args := buildArgs(info)
 
 	var (
-		setupLines []string
-		resultVars string
+		setupLines     []string
+		resultVars     string
+		invokeVars     string
 	)
 
 	switch {
 	case constructor:
 		resultVarName := strings.ToLower(info.Results[0].TypeName[1:])
 		resultVars = resultVarName
+		invokeVars = resultVars
 		if info.HasError {
 			resultVars = strings.Join(buildReturnVars(info.Results, cfg.ResultVarName, cfg.ErrorVarName), ", ")
+			invokeVars = resultVars
 		}
 
 		setupLines = append(setupLines, fmt.Sprintf("%s := New(%s)", resultVars, "tt."+info.Params[0].Name))
@@ -195,6 +207,7 @@ func generateTestTable(buf *bytes.Buffer, checkTypeName, checkVarName string, in
 		} else {
 			setupLines = append(setupLines, callExpr)
 		}
+		invokeVars = recvVar + ", " + resultVars
 
 	default:
 		callExpr := info.Name + "(" + strings.Join(args, ", ") + ")"
@@ -206,6 +219,7 @@ func generateTestTable(buf *bytes.Buffer, checkTypeName, checkVarName string, in
 		} else {
 			setupLines = append(setupLines, callExpr)
 		}
+		invokeVars = resultVars
 	}
 
 	setupBlock := strings.Join(setupLines, "\n\t\t\t")
@@ -225,7 +239,7 @@ func generateTestTable(buf *bytes.Buffer, checkTypeName, checkVarName string, in
 		t.Run(tt.name, func(t *testing.T) {
 			{{.SetupBlock}}
 			{{if .HasResultVars}}for _, c := range tt.checks {
-				c(t, {{.ResultVars}})
+				c(t, {{.InvokeVars}})
 			}{{else}}for _, c := range tt.checks {
 				c(t)
 			}{{end}}
@@ -239,7 +253,7 @@ func generateTestTable(buf *bytes.Buffer, checkTypeName, checkVarName string, in
 		"FieldList":     fieldList,
 		"CheckVarName":  checkVarName,
 		"SetupBlock":    setupBlock,
-		"ResultVars":    resultVars,
+		"InvokeVars":    invokeVars,
 		"HasResultVars": hasResultVars,
 	})
 }

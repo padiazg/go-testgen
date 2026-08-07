@@ -14,8 +14,8 @@ See [The Check Function Pattern](../concepts/checks.md) for a deep-dive into how
 ## Generated Structure
 
 ```go
-// 1. Type alias — mirrors the function's return signature + *testing.T
-type checkServiceCreateUserFn func(*testing.T, *userDomain.User, error)
+// 1. Type alias — mirrors the function's return signature + *testing.T + receiver
+type checkServiceCreateUserFn func(*testing.T, *Service, *userDomain.User, error)
 
 // 2. Collector — type-safe variadic builder
 var checkServiceCreateUser = func(fns ...checkServiceCreateUserFn) []checkServiceCreateUserFn {
@@ -24,7 +24,7 @@ var checkServiceCreateUser = func(fns ...checkServiceCreateUserFn) []checkServic
 
 // 3. Error check (generated when the function returns error)
 func checkServiceCreateUserError(want string) checkServiceCreateUserFn {
-    return func(t *testing.T, _ *userDomain.User, err error) {
+    return func(t *testing.T, s *Service, _ *userDomain.User, err error) {
         t.Helper()
         if want == "" {
             assert.NoErrorf(t, err, "checkServiceCreateUserError: expected no error, got %v", err)
@@ -70,7 +70,7 @@ func TestService_CreateUser(t *testing.T) {
             }
             r, err2 := s.CreateUser(context.Background(), tt.req)
             for _, c := range tt.checks {
-                c(t, r, err2)
+                c(t, s, r, err2)
             }
         })
     }
@@ -81,7 +81,7 @@ func TestService_CreateUser(t *testing.T) {
 
 | Element | Always? | Description |
 |---------|---------|-------------|
-| `checkXxxFn` type | Yes | Signature: `*testing.T` + function's return types |
+| `checkXxxFn` type | Yes | Signature: `*testing.T` + receiver (methods only) + function's return types |
 | `checkXxx` collector | Yes | Variadic identity — builds the checks slice |
 | `checkXxxError` | When `HasError == true` | Checks error presence and message content |
 | `before` field | When `IsMethod == true` | Per-case mock setup / state mutation |
@@ -94,13 +94,13 @@ The generated `checkXxxError` is a starting point. Add domain-specific checks by
 
 ```go
 func checkUserName(want string) checkServiceCreateUserFn {
-    return func(t *testing.T, u *userDomain.User, _ error) {
+    return func(t *testing.T, s *Service, u *userDomain.User, _ error) {
         t.Helper()
         assert.Equalf(t, want, u.Name, "checkUserName: got %q, want %q", u.Name, want)
     }
 }
 
-func checkUserIDNotEmpty(t *testing.T, u *userDomain.User, _ error) {
+func checkUserIDNotEmpty(t *testing.T, s *Service, u *userDomain.User, _ error) {
     t.Helper()
     assert.NotEmptyf(t, u.ID, "checkUserIDNotEmpty: ID should not be empty")
 }

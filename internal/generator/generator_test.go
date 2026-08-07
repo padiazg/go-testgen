@@ -70,11 +70,14 @@ func TestCheckGenerator_Method(t *testing.T) {
 	require.NoError(t, err)
 
 	src := string(result.Source)
-	assert.Contains(t, src, "type checkEngineRunFn func(")
+	assert.Contains(t, src, "type checkEngineRunFn func(*testing.T, *Engine, error)")
 	assert.Contains(t, src, "var checkEngineRun = func(")
 	assert.Contains(t, src, "func TestEngine_Run(t *testing.T)")
 	assert.Contains(t, src, "before func(*Engine)")
 	assert.Contains(t, src, "context.Background()")
+	assert.Contains(t, src, "c(t, s, err)")
+	assert.Contains(t, src, "func checkRunError(want string) checkEngineRunFn {")
+	assert.Contains(t, src, "func(t *testing.T, s *Engine, err error) {")
 }
 
 func TestCheckGenerator_Constructor(t *testing.T) {

@@ -325,10 +325,18 @@ func testFuncName(info *analyzer.FuncInfo) string {
 // receiverVar returns a one-letter variable name for the receiver.
 func receiverVar(info *analyzer.FuncInfo) string {
 	if info.IsMethod && info.Receiver != nil && len(info.Receiver.TypeName) > 0 {
-		// return strings.ToLower(info.Receiver.TypeName[:1])
 		return "s"
 	}
 	return "e"
+}
+
+// receiverParamType returns the check-fn parameter type for the receiver.
+func receiverParamType(info *analyzer.FuncInfo) string {
+	recv := qualifyForExternalTest(info.Receiver.TypeName, "", info.Package, info.TargetPkg)
+	if info.Receiver.IsPointer {
+		return "*" + recv
+	}
+	return recv
 }
 
 // buildReceiverInit returns the code to instantiate the receiver for a method test.

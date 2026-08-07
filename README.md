@@ -191,14 +191,14 @@ Source:  /path/to/internal/core/services/user
 ## Generated test style
 
 ```go
-type checkServiceCreateUserFn func(*testing.T, *userDomain.User, error)
+type checkServiceCreateUserFn func(*testing.T, *Service, *userDomain.User, error)
 
 var checkServiceCreateUser = func(fns ...checkServiceCreateUserFn) []checkServiceCreateUserFn {
     return fns
 }
 
 func checkCreateUserError(want string) checkServiceCreateUserFn {
-    return func(t *testing.T, _ *userDomain.User, err error) {
+    return func(t *testing.T, s *Service, _ *userDomain.User, err error) {
         t.Helper()
         if want == "" {
             assert.NoErrorf(t, err, "checkCreateUserError: expected no error, got %v", err)
@@ -234,7 +234,7 @@ func TestService_CreateUser(t *testing.T) {
             }
             r, err2 := s.CreateUser(context.Background(), tt.req)
             for _, c := range tt.checks {
-                c(t, r, err2)
+                c(t, s, r, err2)
             }
         })
     }
@@ -245,7 +245,8 @@ Key properties:
 
 - Check functions are closures — each assertion is a separate `checkXxxFn`, composable via `checkXxx(fn1, fn2, ...)`.
 - The `before` hook sets up mock expectations per test case.
-- The check function signature mirrors the function's full return list (including `error`).
+- For methods, the check function signature includes the receiver as the second parameter (`*testing.T`, `*Receiver`, `<return types>`), enabling state assertions on the receiver.
+- For free functions and constructors, the signature includes only `*testing.T` + return types (receiver parameter is not added).
 - Context parameters are injected automatically (`context.Background()`), not exposed in the table.
 - Factory function parameters are exposed as table fields (`tt.<param>`), not inline placeholders.
 - Basic-type receivers (e.g. `type Level int`) are initialized with `Type(0)`.

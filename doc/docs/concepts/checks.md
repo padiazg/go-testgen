@@ -41,10 +41,10 @@ A **check function** (`checkXxxFn`) is a typed closure that asserts one specific
 ### The Type Alias
 
 ```go
-type checkServiceCreateUserFn func(*testing.T, *userDomain.User, error)
+type checkServiceCreateUserFn func(*testing.T, *Service, *userDomain.User, error)
 ```
 
-The signature mirrors the function under test's return list, plus `*testing.T` as the first parameter.
+The signature mirrors the function under test's return list, plus `*testing.T` and the receiver (for methods). Free functions and constructors include only `*testing.T` + return types.
 
 ### The Collector
 
@@ -63,7 +63,7 @@ Each check function tests one aspect:
 ```go
 // checkCreateUserNoError verifies no error was returned.
 func checkCreateUserNoError() checkServiceCreateUserFn {
-    return func(t *testing.T, _ *userDomain.User, err error) {
+    return func(t *testing.T, _ *Service, _ *userDomain.User, err error) {
         t.Helper()
         assert.NoErrorf(t, err, "checkCreateUserNoError: unexpected error")
     }
@@ -71,7 +71,7 @@ func checkCreateUserNoError() checkServiceCreateUserFn {
 
 // checkCreateUserName verifies the returned user has the expected name.
 func checkCreateUserName(want string) checkServiceCreateUserFn {
-    return func(t *testing.T, u *userDomain.User, _ error) {
+    return func(t *testing.T, s *Service, u *userDomain.User, _ error) {
         t.Helper()
         assert.Equalf(t, want, u.Name, "checkCreateUserName mismatch")
     }
@@ -79,7 +79,7 @@ func checkCreateUserName(want string) checkServiceCreateUserFn {
 
 // checkCreateUserError verifies an error containing want was returned.
 func checkCreateUserError(want string) checkServiceCreateUserFn {
-    return func(t *testing.T, _ *userDomain.User, err error) {
+    return func(t *testing.T, _ *Service, _ *userDomain.User, err error) {
         t.Helper()
         if want == "" {
             assert.NoErrorf(t, err, "checkCreateUserError: expected no error, got %v", err)
@@ -143,7 +143,7 @@ func TestService_CreateUser(t *testing.T) {
             }
             r, err := s.CreateUser(context.Background(), tt.req)
             for _, c := range tt.checks {
-                c(t, r, err)
+                c(t, s, r, err)
             }
         })
     }

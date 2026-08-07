@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `gen` (`--style check`): method receivers are now passed as the first argument to check-fn closures. Previously only `*testing.T` + return values were included, making receiver-state assertions (e.g. checking `s.Status` after `Order.Cancel()`) impossible. Check-fn signature is now `func(*testing.T, *Receiver, <return types>)` for methods; unchanged for free functions and constructors.
+
 - `gen`: factory function parameters are now exposed as table fields (e.g. `tt.path`, `tt.exclude`) so each test case can configure them independently, instead of using inline placeholder values
 - `gen`: methods on basic-type receivers (e.g. `type Level int`) are initialized with `Type(0)` instead of the invalid `Type{}`
 - `gen`: `placeholderValue` now returns numeric zero (`0`) for `float64`, `uint`, `byte`, `rune`, and `uintptr` instead of `nil`
