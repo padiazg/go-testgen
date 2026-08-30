@@ -91,6 +91,9 @@ func (i *FuncInfo) GetImports() []ImportEntry {
 	for _, p := range i.Params {
 		addImport(p.ImportPath, p.Package)
 	}
+	for _, p := range i.FactoryParams {
+		addImport(p.ImportPath, p.Package)
+	}
 	for _, r := range i.Results {
 		if !r.IsError {
 			addImport(r.ImportPath, r.Package)

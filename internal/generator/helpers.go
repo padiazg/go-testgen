@@ -46,6 +46,9 @@ func CollectImports(info *analyzer.FuncInfo) map[string]string {
 	for _, p := range info.Params {
 		add(p.ImportPath, p.Package)
 	}
+	for _, p := range info.FactoryParams {
+		add(p.ImportPath, p.Package)
+	}
 	for _, r := range info.Results {
 		if !r.IsError {
 			add(r.ImportPath, r.Package)
@@ -140,15 +143,20 @@ func deriveOutFile(info *analyzer.FuncInfo) string {
 	return info.Name + "_test.go"
 }
 
-// qualifyForExternalTest qualifies a same-package type reference for use in an X_test package.
-// E.g., "ProductRepository" -> "database.ProductRepository" when TargetPkg == "database_test"
-// and infoPkg == "database". Returns the original typeName if no qualification needed.
+// qualifyForExternalTest renders a type reference in generated test code.
+// Types from another package (pkgQualifier set) always carry their import
+// alias: a bare name becomes "alias.Type", an already-qualified name (dot)
+// is kept as-is. Same-package types stay bare in internal tests and get the
+// infoPkg prefix in X_test packages.
 func qualifyForExternalTest(typeName, pkgQualifier, infoPkg, targetPkg string) string {
+	if pkgQualifier != "" {
+		if strings.Contains(typeName, ".") {
+			return typeName // already qualified via import alias
+		}
+		return qualifiedTypeName(typeName, pkgQualifier)
+	}
 	if targetPkg == "" || targetPkg == infoPkg {
 		return typeName
-	}
-	if pkgQualifier != "" {
-		return typeName // already qualified via import alias
 	}
 	return qualifiedTypeName(typeName, infoPkg)
 }
