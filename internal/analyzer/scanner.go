@@ -363,6 +363,9 @@ func newInterfaceDepsData(pkg *packages.Package, aliases map[string]string, sour
 func (id *interfaceDepsData) add(strct *types.Struct) {
 	for i := 0; i < strct.NumFields(); i++ {
 		field := strct.Field(i)
+		if !field.Exported() {
+			continue // unexported fields can't be set from tests — nothing to mock
+		}
 		if _, isIface := field.Type().Underlying().(*types.Interface); !isIface {
 			continue
 		}
