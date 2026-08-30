@@ -102,12 +102,75 @@ func TestCheckGenerator_NilFuncInfo_ReturnsError(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestQualifyForExternalTest(t *testing.T) {
+	tests := []struct {
+		name         string
+		typeName     string
+		pkgQualifier string
+		infoPkg      string
+		targetPkg    string
+		want         string
+	}{
+		{name: "external bare, fresh file", typeName: "*Category", pkgQualifier: "categoriesDomain", infoPkg: "categories", targetPkg: "", want: "*categoriesDomain.Category"},
+		{name: "external bare, merged internal test", typeName: "*Category", pkgQualifier: "categoriesDomain", infoPkg: "categories", targetPkg: "categories", want: "*categoriesDomain.Category"},
+		{name: "external bare, external test", typeName: "*Category", pkgQualifier: "categoriesDomain", infoPkg: "categories", targetPkg: "categories_test", want: "*categoriesDomain.Category"},
+		{name: "external slice", typeName: "[]*Category", pkgQualifier: "categoriesDomain", infoPkg: "categories", targetPkg: "", want: "[]*categoriesDomain.Category"},
+		{name: "external default-name pkg", typeName: "*DB", pkgQualifier: "sql", infoPkg: "categories", targetPkg: "", want: "*sql.DB"},
+		{name: "external already qualified", typeName: "*sql.DB", pkgQualifier: "sql", infoPkg: "categories", targetPkg: "", want: "*sql.DB"},
+		{name: "local, internal test", typeName: "Engine", pkgQualifier: "", infoPkg: "mypkg", targetPkg: "mypkg", want: "Engine"},
+		{name: "local, external test", typeName: "Engine", pkgQualifier: "", infoPkg: "mypkg", targetPkg: "mypkg_test", want: "mypkg.Engine"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, qualifyForExternalTest(tt.typeName, tt.pkgQualifier, tt.infoPkg, tt.targetPkg))
+		})
+	}
+}
+
+// categoryStoreMethod mirrors a database adapter method:
+// (s *CategoryStore) Create(ctx context.Context, e *categoriesDomain.Category) error
+// with factory NewCategoryStore(db *sql.DB).
+func categoryStoreMethod() *analyzer.FuncInfo {
+	return &analyzer.FuncInfo{
+		Name:       "Create",
+		Package:    "categories",
+		ImportPath: "github.com/example/app/internal/adapters/secondary/database/categories",
+		IsMethod:   true,
+		Receiver:   &analyzer.ReceiverInfo{TypeName: "CategoryStore", IsPointer: true},
+		Params: []analyzer.ParamInfo{
+			{Name: "ctx", TypeName: "context.Context", IsContext: true},
+			{Name: "e", TypeName: "*Category", Package: "categoriesDomain", ImportPath: "github.com/example/app/internal/core/domain/categories"},
+		},
+		Results:     []analyzer.ResultInfo{{TypeName: "error", IsError: true}},
+		HasError:    true,
+		HasContext:  true,
+		FactoryFunc: "NewCategoryStore",
+		FactoryParams: []analyzer.ParamInfo{
+			{Name: "db", TypeName: "*DB", Package: "sql", ImportPath: "database/sql"},
+		},
+	}
+}
+
+func TestCheckGenerator_ExternalPkgTypes(t *testing.T) {
+	gen := NewCheckGenerator(nil)
+	result, err := gen.Generate(GenerateRequest{Info: categoryStoreMethod()})
+	require.NoError(t, err)
+
+	src := string(result.Source)
+	// Table fields must carry the import alias, not bare type names.
+	assert.Contains(t, src, "e *categoriesDomain.Category")
+	assert.Contains(t, src, "db *sql.DB")
+	// Both packages must be imported (factory param import included).
+	assert.Contains(t, src, "categoriesDomain \"github.com/example/app/internal/core/domain/categories\"")
+	assert.Contains(t, src, "\"database/sql\"")
+}
+
 func TestQualifiedTypeName_Array(t *testing.T) {
 	tests := []struct {
-		name        string
-		typeName    string
+		name         string
+		typeName     string
 		pkgQualifier string
-		want        string
+		want         string
 	}{
 		{name: "no qualifier", typeName: "[100]types.PriceBar", pkgQualifier: "", want: "[100]types.PriceBar"},
 		{name: "with qualifier", typeName: "[100]types.PriceBar", pkgQualifier: "domain", want: "[100]domain.PriceBar"},
