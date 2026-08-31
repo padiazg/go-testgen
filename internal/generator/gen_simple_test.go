@@ -18,6 +18,8 @@ func TestSimpleGenerator_SimpleFunc(t *testing.T) {
 	assert.Contains(t, src, "func TestFoo(t *testing.T)")
 	// No table.
 	assert.NotContains(t, src, "tests := []struct")
+	// Scaffold skips until the user fills it in.
+	assert.Contains(t, src, `t.Skip("scaffold: fill in this test")`)
 	// AAA sections present.
 	assert.Contains(t, src, "// Arrange")
 	assert.Contains(t, src, "// Act")

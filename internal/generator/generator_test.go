@@ -163,6 +163,8 @@ func TestCheckGenerator_ExternalPkgTypes(t *testing.T) {
 	// Both packages must be imported (factory param import included).
 	assert.Contains(t, src, "categoriesDomain \"github.com/example/app/internal/core/domain/categories\"")
 	assert.Contains(t, src, "\"database/sql\"")
+	// Scaffolded TODO case skips (nil deps must not panic the test binary).
+	assert.Contains(t, src, `t.Skip("scaffold: fill in this case")`)
 }
 
 func TestQualifiedTypeName_Array(t *testing.T) {
