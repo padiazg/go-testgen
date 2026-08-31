@@ -18,6 +18,8 @@ func TestTableGenerator_SimpleFunc(t *testing.T) {
 	assert.Contains(t, src, "want string")
 	assert.Contains(t, src, "wantErr string")
 	assert.Contains(t, src, "assert.Equal(t, tt.want,")
+	// Scaffolded TODO case skips until renamed/filled in.
+	assert.Contains(t, src, `t.Skip("scaffold: fill in this case")`)
 	// No check-function types.
 	assert.NotContains(t, src, "type FooFn func(")
 	assert.NotContains(t, src, "var checkFoo")

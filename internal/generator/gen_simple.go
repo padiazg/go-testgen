@@ -85,6 +85,9 @@ func (g *SimpleGenerator) generateSimpleTest(buf *bytes.Buffer, info *analyzer.F
 	}
 
 	t := template.Must(template.New("simpleTest").Parse(`func {{.FuncName}}(t *testing.T) {
+	// TODO: fill in this test, then remove the Skip.
+	t.Skip("scaffold: fill in this test")
+
 	// Arrange
 	{{- if .ArrangeLine}}
 	{{.ArrangeLine}}
